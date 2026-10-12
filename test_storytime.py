@@ -151,6 +151,7 @@ class StorytimeCheck(unittest.TestCase):
             def local(args, **kwargs):
                 self.assertIn('bm_george', args)
                 self.assertEqual(kwargs['input'], 'Good night.')
+                self.assertEqual(kwargs['encoding'], 'utf-8')
                 output.write_bytes(wav_bytes())
             with patch.object(server, 'mistral_speech', side_effect=urllib.error.URLError('offline')), \
                     patch.object(server.subprocess, 'run', side_effect=local):

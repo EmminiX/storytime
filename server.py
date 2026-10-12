@@ -275,7 +275,7 @@ def voice_clip(paragraph, voice, output):
     if not CONFIG.fallback_tts_command:
         raise RuntimeError('Mistral audio is unavailable and no local fallback is configured')
     command = [part.format(voice=voice, output=str(output)) for part in shlex.split(CONFIG.fallback_tts_command)]
-    subprocess.run(command, input=paragraph, text=True,
+    subprocess.run(command, input=paragraph, encoding='utf-8',
                    check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     with wave.open(str(output), 'rb') as audio:
         if (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) != (1, 2, 24000) or not audio.getnframes():
