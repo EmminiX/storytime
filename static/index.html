@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f4ee">
+<title>Storytime</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/cover.png">
+<link rel="icon" href="/cover.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;--paper:#f6f4ee;--panel:#fffefa;--ink:#203847;--muted:#526773;--line:#c9d2d4;--accent:#24566e;--selected:#e3edf1;--blue:#dcebf9;--teal:#d9eeea}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:400 18px/1.5 Lexend,system-ui,sans-serif;-webkit-text-size-adjust:100%}button,input{font:inherit}button,a,label,input{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:wait;opacity:.65}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:5px}main{max-width:900px;margin:auto;padding:48px 32px 80px}h1{font-size:clamp(40px,6vw,56px);font-weight:500;line-height:1.15;margin:10px 0 16px}header{margin-bottom:40px}.eyebrow{font-size:17px;color:var(--muted);letter-spacing:.08em}.intro{margin:0;color:var(--muted);font-size:20px}fieldset{border:0;padding:0;margin:0 0 32px;min-width:0}legend,.name-label{font-size:22px;font-weight:500;margin-bottom:14px}.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.listeners,.moods,.lengths{grid-template-columns:repeat(3,minmax(0,1fr))}.tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:112px;padding:14px 8px;text-align:center;border:2px solid var(--line);border-radius:20px;background:var(--panel);cursor:pointer;line-height:1.25;font-weight:500}.tile input{position:absolute;opacity:0;width:1px;height:1px}.tile:has(input:checked){border-color:var(--accent);background:var(--selected);box-shadow:inset 0 0 0 1px var(--accent)}.tile:has(input:focus-visible){outline:3px solid var(--accent);outline-offset:4px}.tile:has(input:checked)::after{content:'✓';position:absolute;right:10px;top:8px;font-size:16px}.picture{font-size:42px;line-height:1.1}.listener-first,.listener-first:has(input:checked){background:var(--teal)}.listener-second,.listener-second:has(input:checked){background:var(--blue)}.hero{margin-bottom:32px}.name-label{display:block}.optional{font-weight:400;font-size:17px;color:var(--muted)}#hero{width:100%;height:64px;border:2px solid var(--line);background:var(--panel);color:var(--ink);border-radius:16px;padding:12px 18px;font-size:24px}.lengths .tile{min-height:96px}.minutes{font-size:17px;color:var(--muted);font-weight:400}.make{display:block;width:100%;min-height:76px;padding:18px;border:0;border-radius:20px;background:var(--accent);color:#fff;font-size:25px;font-weight:500}.status{color:var(--muted);min-height:27px;margin:14px 0 0}.status:empty{display:none}#saved{margin-top:48px}#saved h2{font-size:24px;font-weight:500;margin-bottom:18px}.saved-list{display:grid;gap:12px}.saved-story{width:100%;text-align:left;min-height:84px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px 22px;color:var(--ink)}.saved-story strong{display:block;font-size:20px;font-weight:500}.saved-story span{display:block;color:var(--muted);font-size:17px;margin-top:4px}[hidden]{display:none!important}.back{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);min-height:56px;padding:12px 20px}.story-heading{text-align:center;margin:36px 0 24px;font-size:clamp(30px,5vw,42px);line-height:1.3}.player{text-align:center;margin-bottom:40px}.controls{display:flex;align-items:center;justify-content:center;gap:24px}#play{width:112px;height:112px;border-radius:50%;background:var(--accent);color:#fff;border:0;font-size:40px;display:grid;place-items:center;padding:0}#stop{width:92px;min-height:92px;border:2px solid var(--line);border-radius:24px;background:var(--panel);color:var(--ink);font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.stop-mark{font-size:27px;line-height:1}.story-count{color:var(--muted);margin:18px 0 0}#player-status{margin:10px 0 0;color:var(--muted)}#text{max-width:740px;margin:auto}#text p{font-size:26px;line-height:1.75;margin:0 0 16px;padding:16px 20px;border-radius:16px;border:2px solid transparent}#text p.active{background:var(--selected);border-color:var(--line)}body.sleeping{background:#05090d;color:#a9b9c5}body.sleeping .back,body.sleeping #text{display:none}body.sleeping .story-heading{color:#a9b9c5;font-size:30px}body.sleeping #play{background:#15232e;color:#b1c2cf}body.sleeping #stop{background:#0c141b;border-color:#273743;color:#a9b9c5}body.sleeping .story-count,body.sleeping #player-status{color:#8ea1ae}body.sleeping main{min-height:100vh;display:flex;align-items:center;justify-content:center}body.sleeping #story-screen{width:100%}body.sleeping .player{margin-bottom:0}
+@media(prefers-color-scheme:dark){:root{--paper:#101b22;--panel:#172730;--ink:#e5edf0;--muted:#b1c2cb;--line:#49616e;--accent:#326b85;--selected:#243f4e;--blue:#163e60;--teal:#204945}}
+.voices{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:600px){main{padding:32px 18px 56px}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.listeners,.moods,.lengths{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.tile{min-height:112px;font-size:17px;border-radius:16px}.picture{font-size:38px}.listeners .tile{min-height:112px}.moods .tile{font-size:17px}.lengths .tile{font-size:17px}.minutes{font-size:17px}#text p{padding:12px 8px;font-size:24px}header{margin-bottom:32px}}
+@media(prefers-reduced-motion:no-preference){button,.tile{transition:background-color .15s ease-out,border-color .15s ease-out}}
+/* Compact choices keep every tap target at least 44 CSS pixels. */
+main{max-width:1100px;padding:24px 28px 40px}header{margin-bottom:20px}h1{font-size:38px;margin:6px 0 10px}.intro{font-size:18px}
+#choices{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px;align-items:start}fieldset,.hero{margin:0}legend,.name-label{font-size:19px;margin-bottom:8px}.tile{min-height:76px;padding:8px 6px;gap:4px;border-radius:14px;font-size:16px}.picture{font-size:28px}.tiles{gap:8px}.lengths .tile{min-height:76px}.minutes{font-size:14px}#hero{height:52px;font-size:20px}.make{min-height:56px;font-size:22px;padding:12px;grid-column:1/-1}#make-status{grid-column:1/-1;margin:0}#saved{margin-top:24px}#saved h2{margin:0 0 10px;font-size:21px}.saved-list{max-height:264px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;gap:6px;padding:3px}.saved-story{display:flex;align-items:center;gap:16px;min-height:48px;padding:10px 14px;border-radius:12px}.saved-story strong{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}.saved-story span{flex-shrink:0;font-size:14px;margin:0;white-space:nowrap}#engine{font-size:15px;color:var(--muted);margin:8px 0}body.sleeping #engine{color:#8ea1ae}
+@media(max-width:700px){#choices{grid-template-columns:1fr}main{padding:20px 16px 32px}h1{font-size:32px}.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}.listeners,.moods,.lengths{grid-template-columns:repeat(3,minmax(0,1fr))}.voices{grid-template-columns:repeat(2,minmax(0,1fr))}.tile,.listeners .tile{min-height:76px;font-size:15px}.saved-story{gap:8px}.saved-story strong{font-size:15px}.saved-story span{font-size:12px}}
+.saved-row{display:flex;align-items:center;gap:8px}.saved-row .saved-story{flex:1;min-width:0}.save-link{display:inline-flex;align-items:center;justify-content:center;min-width:56px;min-height:48px;color:var(--ink);border-radius:12px}body.sleeping .save-link{color:#a9b9c5}
+</style>
+</head>
+<body>
+<main>
+<section id="choose-screen" aria-labelledby="welcome">
+<header><div class="eyebrow">STORYTIME</div><h1 id="welcome">A little adventure.<br>A lovely goodnight.</h1><p class="intro">Choose your story.</p></header>
+<form id="choices">
+<fieldset><legend>Who’s listening?</legend><div class="tiles listeners" id="listeners"></div></fieldset>
+<div class="hero"><label class="name-label" for="hero">Hero’s name <span class="optional">optional</span></label><input id="hero" name="hero" value="" maxlength="60" autocomplete="off" autocapitalize="words"></div>
+<fieldset><legend>Your world</legend><div class="tiles">
+<label class="tile"><input type="radio" name="world" value="Dragon castle" checked aria-label="Dragon castle"><span class="picture" aria-hidden="true">🏰</span>Castle</label>
+<label class="tile"><input type="radio" name="world" value="Space"><span class="picture" aria-hidden="true">🚀</span>Space</label>
+<label class="tile"><input type="radio" name="world" value="Under the sea" aria-label="Under the sea"><span class="picture" aria-hidden="true">🐠</span>Sea</label>
+<label class="tile"><input type="radio" name="world" value="Magic forest" aria-label="Magic forest"><span class="picture" aria-hidden="true">🌳</span>Forest</label>
+<label class="tile"><input type="radio" name="world" value="Minecraft world" aria-label="Minecraft world"><span class="picture" aria-hidden="true">🧱</span>Minecraft</label>
+<label class="tile"><input type="radio" name="world" value="Dinosaur island" aria-label="Dinosaur island"><span class="picture" aria-hidden="true">🦕</span>Dinosaurs</label>
+<label class="tile"><input type="radio" name="world" value="Farm"><span class="picture" aria-hidden="true">🚜</span>Farm</label>
+<label class="tile"><input type="radio" name="world" value="Snow mountain" aria-label="Snow mountain"><span class="picture" aria-hidden="true">🏔️</span>Snow</label>
+</div></fieldset>
+<fieldset><legend>Your friend</legend><div class="tiles">
+<label class="tile"><input type="radio" name="friend" value="Puppy" checked><span class="picture" aria-hidden="true">🐶</span>Puppy</label>
+<label class="tile"><input type="radio" name="friend" value="Robot"><span class="picture" aria-hidden="true">🤖</span>Robot</label>
+<label class="tile"><input type="radio" name="friend" value="Unicorn"><span class="picture" aria-hidden="true">🦄</span>Unicorn</label>
+<label class="tile"><input type="radio" name="friend" value="Fox"><span class="picture" aria-hidden="true">🦊</span>Fox</label>
+<label class="tile"><input type="radio" name="friend" value="Tiny dragon" aria-label="Tiny dragon"><span class="picture" aria-hidden="true">🐉</span>Dragon</label>
+<label class="tile"><input type="radio" name="friend" value="Cat"><span class="picture" aria-hidden="true">🐱</span>Cat</label>
+<label class="tile"><input type="radio" name="friend" value="Owl"><span class="picture" aria-hidden="true">🦉</span>Owl</label>
+<label class="tile"><input type="radio" name="friend" value="Penguin"><span class="picture" aria-hidden="true">🐧</span>Penguin</label>
+</div></fieldset>
+<fieldset><legend>How does it feel?</legend><div class="tiles moods">
+<label class="tile"><input type="radio" name="mood" value="Funny"><span class="picture" aria-hidden="true">😄</span>Funny</label>
+<label class="tile"><input type="radio" name="mood" value="Brave adventure" aria-label="Brave adventure"><span class="picture" aria-hidden="true">🧭</span>Brave</label>
+<label class="tile"><input type="radio" name="mood" value="Calm and sleepy" checked aria-label="Calm and sleepy"><span class="picture" aria-hidden="true">🌙</span>Sleepy</label>
+</div></fieldset>
+<fieldset><legend>How long?</legend><div class="tiles lengths">
+<label class="tile"><input type="radio" name="length" value="Short" checked>Short<span class="minutes">4 to 6 min</span></label>
+<label class="tile"><input type="radio" name="length" value="Medium">Medium<span class="minutes">8 to 11 min</span></label>
+<label class="tile"><input type="radio" name="length" value="Long">Long<span class="minutes">14 to 18 min</span></label>
+</div></fieldset>
+<fieldset><legend>Who reads it?</legend><div class="tiles voices">
+<label class="tile"><input type="radio" name="voice" value="bf_emma" checked><span class="picture" aria-hidden="true">🙋‍♀️</span>Emma</label>
+<label class="tile"><input type="radio" name="voice" value="bm_george"><span class="picture" aria-hidden="true">🙋‍♂️</span>George</label>
+</div></fieldset>
+<button class="make" id="make" type="submit" disabled>Make my story</button>
+<p class="status" id="make-status" role="status" aria-live="polite"></p>
+</form>
+<section id="saved" aria-labelledby="saved-heading" hidden><h2 id="saved-heading">Stories so far</h2><div class="saved-list" id="saved-list" role="region" aria-label="Saved stories, newest first" tabindex="0"></div></section>
+</section>
+<section id="story-screen" aria-labelledby="story-title" hidden>
+<button class="back" id="back" type="button">‹ Choose</button>
+<h1 class="story-heading" id="story-title" tabindex="-1"></h1>
+<div class="player"><div class="controls">
+<button id="play" type="button" aria-label="Play story"><span id="play-symbol" aria-hidden="true">▶</span></button>
+<button id="stop" type="button" aria-label="Stop story"><span class="stop-mark" aria-hidden="true">■</span>Stop</button>
+</div><p class="story-count" id="story-count"></p><p id="engine"></p><a id="save-story" class="save-link" hidden>Save</a><p id="player-status" role="status" aria-live="polite">Tap play.</p></div>
+<div id="text"></div>
+<audio id="audio" preload="auto" playsinline></audio>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const audio = $('audio');
+let story = null, paragraph = 0, wantsPlay = false, waiting = false, finished = false, continuous = false;
+let session = 0, sleepTimer, pollBusy = false;
+const history = [];
+let listeners = [];
+function heroName(who) { return ['Both', 'Everyone'].includes(who) ? listeners.map(item => item.name).join(' and ') : who; }
+async function loadListeners() {
+  try {
+    const config = await request('/api/config');
+    listeners = config.listeners;
+    const names = listeners.map(item => item.name);
+    if (names.length >= 2) names.push(names.length === 2 ? 'Both' : 'Everyone');
+    $('listeners').replaceChildren(...names.map((name, index) => {
+      const label = document.createElement('label');
+      label.className = `tile ${index === 0 ? 'listener-first' : index === 1 ? 'listener-second' : ''}`;
+      const input = document.createElement('input');
+      input.type = 'radio'; input.name = 'who'; input.value = name; input.checked = index === 0;
+      const picture = document.createElement('span'); picture.className = 'picture';
+      picture.setAttribute('aria-hidden', 'true'); picture.textContent = index < listeners.length ? '🧒' : '👫';
+      label.append(input, picture, document.createTextNode(name));
+      return label;
+    }));
+    $('hero').value = heroName(names[0]).slice(0, 60);
+    $('make').disabled = false;
+  } catch { $('make-status').textContent = 'Listeners could not be loaded. Please reload the page.'; }
+}
+function updateSave() {
+  const link = $('save-story');
+  link.hidden = !story?.continuous;
+  if (story?.continuous) link.href = `/stories/${story.id}/download`;
+}
+function say(message) { $('player-status').textContent = message; }
+function wake() {
+  clearTimeout(sleepTimer); document.body.classList.remove('sleeping');
+  if (wantsPlay) sleepTimer = setTimeout(() => document.body.classList.add('sleeping'), 20000);
+}
+function playerLabel() {
+  $('play').setAttribute('aria-label', wantsPlay ? 'Pause story' : 'Play story');
+  $('play-symbol').textContent = wantsPlay ? 'Ⅱ' : '▶';
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = wantsPlay ? 'playing' : 'paused';
+}
+function highlight() {
+  [...$('text').children].forEach((node, index) => node.classList.toggle('active', index === paragraph && !finished));
+  const engine = story?.engines?.[String(paragraph + 1)] || 'Not ready';
+  $('engine').textContent = `Voice: ${story?.choices?.voice === 'bm_george' ? 'George' : 'Emma'} · ${engine}`;
+}
+function mediaMetadata() {
+  if (!('mediaSession' in navigator) || !('MediaMetadata' in window)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({title: story.title, artist: 'Storytime',
+    album: `Story ${story.number || 1} of 3`, artwork: [{src: new URL('/cover.png', location.href).href, sizes: '512x512', type: 'image/png'}]});
+}
+function render() {
+  $('story-title').textContent = story.title;
+  $('story-count').textContent = `Story ${story.number || 1} of 3`;
+  $('text').replaceChildren(...story.paragraphs.map(text => {
+    const p = document.createElement('p'); p.textContent = text; return p;
+  }));
+  highlight(); mediaMetadata(); updateSave();
+}
+function source() { return continuous ? story.continuous : (story.playlist || story.audio)[paragraph]; }
+function stop() {
+  wantsPlay = false; waiting = false; finished = false; paragraph = 0; audio.pause();
+  if (story) { continuous = Boolean(story.continuous); if (source()) audio.src = source(); else audio.removeAttribute('src'); }
+  playerLabel(); wake(); highlight(); say('Tap play.');
+}
+function pause() {
+  wantsPlay = false; audio.pause(); playerLabel(); wake(); say('Paused.');
+}
+function resume() {
+  if (!story) return;
+  if (finished) { paragraph = 0; finished = false; continuous = Boolean(story.continuous); audio.src = source(); }
+  wantsPlay = true; playerLabel(); wake();
+  if (waiting && paragraph >= story.total) { advanceStory(); return; }
+  if (!source()) { waiting = true; say(story.audio_error || 'Getting the first part ready…'); return; }
+  if (waiting) { playParagraph(); return; }
+  const token = session;
+  audio.play().then(() => { if (token === session && wantsPlay) say(''); }).catch(() => {
+    if (token !== session || !wantsPlay) return;
+    pause(); say('Tap play to keep listening.');
+  });
+}
+function playParagraph() {
+  if (!story || !wantsPlay) return;
+  if (!source()) { waiting = true; say(story.audio_error || 'Getting the next part ready…'); return; }
+  waiting = false; audio.src = source(); highlight(); resume();
+}
+function openStory(value, autoplay = false) {
+  session++; stop(); story = value; paragraph = 0; finished = false; continuous = Boolean(story.continuous);
+  $('choose-screen').hidden = true; $('story-screen').hidden = false;
+  render(); if (source()) audio.src = source(); else audio.removeAttribute('src');
+  if (story.audio_error) say(story.audio_error);
+  $('story-title').focus(); window.scrollTo(0, 0);
+  if (autoplay) resume();
+}
+async function request(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error('Please try again in a little while.');
+  return response.json();
+}
+async function savedStories() {
+  try {
+    const list = await request('/api/stories');
+    $('saved-list').replaceChildren(...list.map(item => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'saved-story';
+      const title = document.createElement('strong'); title.textContent = item.title;
+      const details = document.createElement('span');
+      details.textContent = `${item.choices.voice === 'bm_george' ? 'George' : 'Emma'} · ${new Date(item.created).toLocaleDateString('en-IE', {day:'numeric',month:'short'})}`;
+      button.append(title, details);
+      button.addEventListener('click', async () => {
+        history.length = 0;
+        if (!item.ready) {
+          try { openStory(await request(`/api/story/${item.id}`)); }
+          catch { $('make-status').textContent = 'This story could not be loaded. Please try again.'; }
+          return;
+        }
+        // shortcut: start published audio on the tap; fetch full text immediately afterward for Safari permissions.
+        openStory({...item, paragraphs:[], audio:[`/stories/${item.id}/p01.wav`],
+          playlist:item.playlist?.length ? item.playlist : [`/stories/${item.id}/p01.wav`], ready:1, total:1}, true);
+        poll();
+      });
+      const row = document.createElement('div'); row.className = 'saved-row';
+      const save = document.createElement('a'); save.className = 'save-link'; save.textContent = 'Save';
+      save.href = `/stories/${item.id}/download`; save.hidden = !item.continuous;
+      save.setAttribute('aria-label', `Save ${item.title}`);
+      row.append(button, save); return row;
+    }));
+    $('saved').hidden = !list.length;
+  } catch { $('make-status').textContent = 'Saved stories could not be loaded. Please try again.'; }
+}
+async function nextStory() {
+  if (!story?.next_story_id) { say('The next story needs a moment…'); return; }
+  const token = session, current = story;
+  try {
+    const next = await request(`/api/story/${story.next_story_id}`);
+    if (token !== session) return;
+    history.push(current); openStory(next, true);
+  } catch { say('The next story needs a moment…'); }
+}
+function previousStory() {
+  if (history.length) openStory(history.pop(), true);
+  else { stop(); resume(); }
+}
+async function advanceStory() {
+  if (!story || !waiting || !wantsPlay || paragraph < story.total) return;
+  if ((story.number || 1) >= 3) {
+    wantsPlay = false; waiting = false; finished = true; playerLabel(); clearTimeout(sleepTimer); highlight(); say('Goodnight.'); return;
+  }
+  if (!story.next_story_id) { say(story.continuation_error || 'Getting your next story ready…'); return; }
+  await nextStory();
+}
+async function poll() {
+  if (!story || finished || pollBusy || $('story-screen').hidden) return;
+  pollBusy = true;
+  const token = session, id = story.id;
+  try {
+    const updated = await request(`/api/story/${id}`);
+    if (token !== session || story.id !== id) return;
+    const needsText = !story.paragraphs.length;
+    story = updated; updateSave();
+    if (story.audio_error) { wantsPlay = false; waiting = false; audio.pause(); playerLabel(); wake(); say(story.audio_error); }
+    if (needsText) render();
+    if (waiting && wantsPlay) {
+      if (paragraph < story.total) playParagraph();
+      else await advanceStory();
+    }
+  } catch { if (token === session) say('The connection needs a moment…'); }
+  finally { pollBusy = false; }
+}
+if ('mediaSession' in navigator) {
+  const actions = {play:resume, pause, nexttrack:nextStory, previoustrack:previousStory,
+    seekforward:null, seekbackward:null};
+  for (const [action, handler] of Object.entries(actions)) {
+    try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* This browser does not expose this control. */ }
+  }
+}
+$('choices').addEventListener('change', event => {
+  if (event.target.name === 'who') $('hero').value = heroName(event.target.value).slice(0, 60);
+});
+$('choices').addEventListener('submit', async event => {
+  event.preventDefault(); $('make').disabled = true; $('make-status').textContent = 'Making your story…';
+  try {
+    const value = await request('/api/story', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});
+    history.length = 0; openStory(value); $('make-status').textContent = ''; savedStories();
+  } catch (error) { $('make-status').textContent = error.message; }
+  finally { $('make').disabled = false; }
+});
+$('play').addEventListener('click', () => wantsPlay ? pause() : resume());
+$('stop').addEventListener('click', stop);
+$('back').addEventListener('click', () => {
+  session++; stop(); story = null; history.length = 0;
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+  $('story-screen').hidden = true; $('choose-screen').hidden = false;
+  $('welcome').scrollIntoView(); $('back').blur(); savedStories();
+});
+audio.addEventListener('ended', () => {
+  if (!wantsPlay) return;
+  paragraph = continuous ? story.total : paragraph + 1;
+  waiting = true; highlight();
+  if (paragraph < story.total) playParagraph(); else advanceStory();
+});
+audio.addEventListener('timeupdate', () => {
+  if (continuous && story.paragraph_starts) {
+    paragraph = Math.max(0, story.paragraph_starts.findLastIndex(start => start <= audio.currentTime)); highlight();
+  }
+  if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && Number.isFinite(audio.duration) && audio.duration > 0) {
+    navigator.mediaSession.setPositionState({duration:audio.duration, playbackRate:audio.playbackRate, position:Math.min(audio.currentTime, audio.duration)});
+  }
+});
+audio.addEventListener('play', () => { wantsPlay = true; playerLabel(); wake(); });
+audio.addEventListener('pause', () => { if (!audio.ended && !waiting) { wantsPlay = false; playerLabel(); } });
+audio.addEventListener('error', () => {
+  if (!story || !wantsPlay) return;
+  pause(); say('The audio could not play. Tap play to try again.');
+});
+document.addEventListener('click', wake);
+setInterval(poll, 2000);
+loadListeners(); savedStories();
+</script>
+</body>
+</html>

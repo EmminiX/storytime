@@ -1,0 +1,16 @@
+{
+  "name": "Storytime",
+  "short_name": "Storytime",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ee",
+  "theme_color": "#24566e",
+  "icons": [
+    {
+      "src": "/cover.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

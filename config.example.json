@@ -1,0 +1,11 @@
+{
+  "listeners": [{"name": "Robin", "age": 8}, {"name": "Sam", "age": 5}],
+  "local_flavour": "",
+  "host": "127.0.0.1",
+  "port": 8787,
+  "mistral_voices": {
+    "bf_emma": "5de47977-6e47-4266-a938-3bc1d76b4676",
+    "bm_george": "390c8a2b-60a6-4882-8437-c49a8bd33b63"
+  },
+  "fallback_tts_command": ""
+}

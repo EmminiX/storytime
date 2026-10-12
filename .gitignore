@@ -1,0 +1,9 @@
+config.json
+.env
+stories/
+*.log
+__pycache__/
+.venv/
+.DS_Store
+WORKLOG.md
+VERDICT.txt
