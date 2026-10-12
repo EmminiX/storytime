@@ -2,6 +2,11 @@
 
 Storytime is a small bedtime story app for a household. Choose a listener, world, friend, mood, length, and reader. It writes three linked stories, makes spoken audio, and saves the text and WAV files on the computer running the server.
 
+
+| Choose | Making the story | Playing | Sleep |
+|---|---|---|---|
+| ![Choice screen](docs/choose.png) | ![The stars write the hero's initial](docs/making.png) | ![Playing screen](docs/playing.png) | ![Sleep screen](docs/sleep.png) |
+
 ## Design
 
 A paper-cut night scene is made with inline SVG and CSS, with no image files for the scene. A Motion switch keeps the scene still when you prefer, and the app follows reduced-motion settings.
