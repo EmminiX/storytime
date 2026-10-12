@@ -2,6 +2,10 @@
 
 Storytime is a small bedtime story app for a household. Choose a listener, world, friend, mood, length, and reader. It writes three linked stories, makes spoken audio, and saves the text and WAV files on the computer running the server.
 
+## Design
+
+A paper-cut night scene is made with inline SVG and CSS, with no image files for the scene. A Motion switch keeps the scene still when you prefer, and the app follows reduced-motion settings.
+
 ## Security: home use only
 
 **There is no login, no HTTPS, and no rate limit. Anyone who can reach the app on your network can spend your API credit and read saved stories. Never expose it to the internet or port-forward it.**
