@@ -309,30 +309,39 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_paragraph_seek_on_finished_story(self):
         import server
-        """Paragraph_starts must be valid seek positions: correct count, monotonic, zero-based."""
-        with tempfile.TemporaryDirectory() as directory:
-            clips, starts = [], []
-            for i in range(3):
-                path = Path(directory) / f'q{i + 1:02}.wav'
-                path.write_bytes(wav_bytes(frames=4800))
-                clips.append(path)
-                starts.append(i * 0.2)
-            output = Path(directory) / 'story.wav'
-            server.concatenate_audio(clips, output, [0] * len(clips))
-            self.assertTrue(output.is_file())
-            starts_from_audio, position = [], 0
-            for clip in clips:
-                starts_from_audio.append(position)
-                with wave.open(str(clip), 'rb') as audio:
-                    position += audio.getnframes() / audio.getframerate()
-            self.assertEqual(len(starts_from_audio), 3)
-            self.assertEqual(starts_from_audio[0], 0, 'First paragraph starts at 0')
-            self.assertTrue(all(starts_from_audio[i] <= starts_from_audio[i + 1] for i in range(len(starts_from_audio) - 1)),
-                            'Paragraph starts must be non-decreasing')
+        """Paragraph_starts produced by finish_audio must be valid seek positions."""
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            paragraphs = ['Para one.', 'Para two.', 'Para three.']
+            story_id = '20261013-020202-seek-test'
+            folder = Path(directory) / story_id
+            folder.mkdir()
+            story = {'id': story_id, 'choices': server.Choices().model_dump(),
+                     'title': 'Seek Test', 'paragraphs': paragraphs, 'number': 1,
+                     'created': '2026-10-13T02:02:02+00:00', 'next_story_id': None}
+            server.save_story(story)
+            def fake_voice(args, **kwargs):
+                Path(args[4]).write_bytes(wav_bytes(frames=4800))
+            with patch.object(server, 'mistral_speech', side_effect=RuntimeError('offline')), \
+                    patch.object(server.subprocess, 'run', side_effect=fake_voice):
+                server.finish_audio(story_id)
+            saved = server.read_story(story_id)
+            self.assertIsNone(saved.get('audio_error'), 'finish_audio must clear audio_error')
+            self.assertIn('paragraph_starts', saved, 'finish_audio must store paragraph_starts')
+            starts = saved['paragraph_starts']
+            self.assertEqual(len(starts), len(paragraphs),
+                            'One start per paragraph')
+            self.assertEqual(starts[0], 0, 'First paragraph starts at 0')
+            self.assertTrue(all(starts[i] <= starts[i + 1] for i in range(len(starts) - 1)),
+                            'Paragraph starts must be monotonic')
+            for i in range(1, len(starts)):
+                self.assertGreater(starts[i], starts[i - 1],
+                                  f'Paragraph {i + 1} starts after paragraph {i}')
+            self.assertTrue((folder / 'story.wav').is_file(),
+                           'Continuous WAV must exist for seeking')
 
     def test_reader_label_for_old_story(self):
         import server
-        """Old stories without a voice field in choices must not crash the shelf API."""
+        """Old stories missing voice in choices must not crash the shelf API and must show no voice."""
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(server, 'STORIES', Path(directory)):
             old_story = {'id': '20241001-010101-old-story', 'title': 'Old Story', 'choices': {},
@@ -344,7 +353,11 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]['title'], 'Old Story')
             self.assertIsNone(results[0]['choices'].get('voice'),
-                              'Old story has no voice; frontend fallback is VOICES[voice] || Someone')
+                              'Old story has no voice; frontend falls back to VOICES[voice] || "Someone"')
+            # Verify the saved_stories response itself does not crash
+            self.assertEqual(results[0]['id'], '20241001-010101-old-story')
+            self.assertEqual(results[0]['choices'], {},
+                            'Empty choices dict for stories saved before voice was added')
 
 
 class PassResult(unittest.TextTestResult):

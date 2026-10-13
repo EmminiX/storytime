@@ -1135,9 +1135,10 @@ function resume() {
   });
 }
 function playParagraph() {
-  if (!story || !wantsPlay) return;
+  if (!story) return;
   if (!source()) { waiting = true; say(story.audio_error || 'Getting the next part ready…'); return; }
   waiting = false;
+  wantsPlay = true;
   if (continuous && story.paragraph_starts && story.paragraph_starts[paragraph] !== undefined) {
     audio.currentTime = story.paragraph_starts[paragraph];
   } else {
@@ -1150,7 +1151,7 @@ function previousParagraph() {
   if (paragraph > 0) {
     finished = false; paragraph--;
     highlight();
-    if (wantsPlay) { playParagraph(); }
+    playParagraph();
     say(`Paragraph ${paragraph + 1} of ${story.total}`);
   } else {
     say('First paragraph.');
@@ -1161,7 +1162,7 @@ function nextParagraph() {
   if (paragraph < story.total - 1) {
     finished = false; paragraph++;
     highlight();
-    if (wantsPlay) { playParagraph(); }
+    playParagraph();
     say(`Paragraph ${paragraph + 1} of ${story.total}`);
   } else {
     say('Last paragraph.');
