@@ -69,6 +69,8 @@ Run the server:
 
 Open `http://127.0.0.1:8787` on that computer. Keep the terminal running, and use Ctrl+C to stop it. Run the offline checks with `.venv/bin/python test_storytime.py`.
 
+A browser check drives the paragraph skip in a real browser: `node browser_test.mjs`. It needs Node and Playwright (if Playwright is not installed next to the project, set `PLAYWRIGHT_MODULE` to the playwright module path). It starts the server on a free port, seeds one finished story, and presses next and previous paragraph on the player, so no provider keys may be set while it runs.
+
 ## Using an iPad on the home network
 
 Set `"host": "0.0.0.0"` in `config.json` and restart the server. This listens on all interfaces. Keep the iPad and server on your private home network. Allow the configured port through the computer's firewall only for your trusted network.

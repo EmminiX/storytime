@@ -845,7 +845,7 @@ const WORLDS = {
   'Farm': {key: 'farm', place: 'the farm', title: 'the Farm'},
   'Snow mountain': {key: 'snow', place: 'the snow mountain', title: 'the Snow Mountain'}
 };
-const PLACES = {
+const PLACE_PICTURES = {
   'New York City': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><rect x="10" y="80" width="20" height="40" fill="#3a4e80"/><rect x="35" y="70" width="16" height="50" fill="#3a4e80"/><rect x="55" y="65" width="12" height="55" fill="#3a4e80"/><rect x="72" y="75" width="14" height="45" fill="#3a4e80"/><rect x="90" y="80" width="18" height="40" fill="#3a4e80"/></svg>',
   'London': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><rect x="20" y="60" width="80" height="60" fill="#2b3d66"/><rect x="30" y="40" width="12" height="20" fill="#2b3d66"/><rect x="50" y="40" width="12" height="20" fill="#2b3d66"/><rect x="70" y="40" width="12" height="20" fill="#2b3d66"/><rect x="35" y="25" width="50" height="15" fill="#1c2a4a"/><path d="M30 25 L60 10 L90 25" fill="#1c2a4a"/></svg>',
   'Paris': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="45" y="20" width="30" height="80" fill="#3a4e80"/><rect x="40" y="15" width="40" height="10" fill="#2b3d66"/><rect x="35" y="10" width="50" height="5" fill="#1c2a4a"/><circle cx="50" cy="50" r="3" fill="#2a2320"/><circle cx="60" cy="50" r="3" fill="#2a2320"/><circle cx="70" cy="50" r="3" fill="#2a2320"/></svg>',
@@ -856,7 +856,7 @@ const PLACES = {
   'Japan': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#fff"/><circle cx="60" cy="60" r="30" fill="#e6a63d"/><circle cx="60" cy="60" r="15" fill="#fff"/></svg>',
   'Surprise me': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><path d="M60 20 L65 40 L80 45 L70 55 L75 75 L60 65 L45 75 L50 55 L40 45 L55 40 Z" fill="#fff"/><path d="M60 80 Q65 85 70 80 Q65 90 60 85 Q55 90 50 80 Q55 85 60 80" fill="none" stroke="#fff" stroke-width="2"/></svg>'
 };
-const PLACES = {
+const PLACE_PHRASES = {
   'New York City': 'New York City',
   'London': 'London',
   'Paris': 'Paris',
@@ -921,7 +921,7 @@ function worldPic(key, cls = 'pic') {
 }
 function pic(group, value) {
   if (group === 'world') return worldPic(WORLDS[value].key);
-  if (group === 'where') return PLACES[value] || '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/></svg>';
+  if (group === 'where') return PLACE_PICTURES[value] || '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/></svg>';
   const id = {who: 'l-' + (LISTENERS.get(value) || 'group'), friend: 'f-' + FRIENDS[value], mood: 'm-' + MOODS[value], length: 'b-' + LENGTHS[value], voice: 'v-' + (value === 'bm_george' ? 'george' : 'emma')}[group];
   return `<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#${id}"/></svg>`;
 }
@@ -956,7 +956,7 @@ function renderSummary() {
   const c = choices(), s = $('summary');
   s.replaceChildren();
   const add = (t, b) => { const n = document.createElement(b ? 'b' : 'span'); n.textContent = t; s.append(n); };
-  const place = c.where ? PLACES[c.where] : 'a magical place';
+  const place = c.where ? PLACE_PHRASES[c.where] : 'a magical place';
   add('A '); add(MOODS[c.mood] === 'sleepy' ? 'sleepy' : MOODS[c.mood], 1); add(' story for '); add(listenerHero(c.who), 1);
   add(': in '); add(place, 1); add(' at '); add(WORLDS[c.world].place, 1); add(' with a '); add(friendWord(c.friend), 1); add(', read by '); add(VOICES[c.voice], 1); add('. ');
   add({short: '4 to 6 minutes.', medium: '8 to 11 minutes.', long: '14 to 18 minutes.'}[LENGTHS[c.length]]);
