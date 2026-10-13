@@ -168,22 +168,17 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_manifest_served(self):
         import server
-        import asyncio
-        async def get(path):
-            messages = []
-            async def receive():
-                return {'type': 'http.request', 'body': b'', 'more_body': False}
-            async def send(message):
-                messages.append(message)
-            await server.app({'type': 'http', 'method': 'GET', 'path': path, 'raw_path': path.encode(),
-                              'query_string': b'', 'headers': [], 'http_version': '1.1',
-                              'scheme': 'http', 'server': ('localhost', 8787), 'client': ('localhost', 1)}, receive, send)
-            self.assertEqual(messages[0]['status'], 200)
-            return b''.join(m.get('body', b'') for m in messages)
-        manifest = json.loads(asyncio.run(get('/manifest.webmanifest')))
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        response = client.get('/manifest.webmanifest')
+        self.assertEqual(response.status_code, 200)
+        manifest = response.json()
         self.assertEqual(manifest['display'], 'standalone')
-        asyncio.run(get(manifest['icons'][0]['src']))
-        self.assertIn(b'apple-mobile-web-app-capable', asyncio.run(get('/')))
+        icon_response = client.get(manifest['icons'][0]['src'])
+        self.assertEqual(icon_response.status_code, 200)
+        index_response = client.get('/')
+        self.assertEqual(index_response.status_code, 200)
+        self.assertIn(b'apple-mobile-web-app-capable', index_response.content)
 
     def test_story_contract_and_storage(self):
         self.assertIsNotNone(importlib.util.find_spec('server'), 'Storytime server must exist')
@@ -305,7 +300,9 @@ class StorytimeCheck(unittest.TestCase):
     def test_where_field_default(self):
         import server
         choices = server.Choices()
-        self.assertEqual(choices.where, 'New York City')
+        self.assertIsNone(choices.where, 'where should be None by default, not New York City')
+        prompt = server.story_prompt(choices, 1, [])
+        self.assertNotIn('New York City', prompt, 'Old stories without where should not get New York City in prompt')
 
     def test_paragraph_seek_on_finished_story(self):
         import server

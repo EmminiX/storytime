@@ -288,7 +288,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .skip-btn svg{width:28px;height:28px}
 .skip-btn:hover{border-color:var(--ring)}
 .skip-btn:active{transform:scale(.96)}
-.skip-label{font-size:10px;line-height:1;color:var(--muted);margin-top:2px}
+.skip-label{font-size:16px;line-height:1;color:var(--text);margin-top:2px}
 .book{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:16px;min-height:76px;padding:8px 14px 8px 10px;border-radius:18px;background:var(--panel);border:2px solid var(--line);text-align:left;transition:border-color .2s var(--ease),box-shadow .25s var(--ease);animation:rise .5s var(--ease) both;animation-delay:calc(var(--i,0)*70ms);width:100%}
 .book:hover{border-color:var(--ring);box-shadow:0 18px 30px -24px rgba(10,15,30,.6)}
 .book .cover{width:104px;height:68px;border-radius:12px;display:block}
@@ -615,12 +615,25 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   <!-- small UI marks (24 x 24) -->
   <g id="i-back"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
   <g id="i-next"><path d="M5 12 H19 M13 6 L19 12 L13 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-prev-paragraph"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-next-paragraph"><path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-prev-story"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5 L8 12 L5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="11" y1="5" x2="11" y2="19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>
+  <g id="i-next-story"><path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 5 L16 12 L13 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="17" y1="5" x2="17" y2="19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>
   <g id="i-play"><path d="M8 5 L19 12 L8 19Z" fill="currentColor"/></g>
   <g id="i-pause"><rect x="6" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"/></g>
   <g id="i-stop"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></g>
   <g id="i-books"><rect x="4" y="5" width="4" height="15" rx="1" fill="currentColor"/><rect x="10" y="3" width="4" height="17" rx="1" fill="currentColor" opacity=".75"/><path d="M15.5 6.5 L18.8 5.6 L22 18.2 L18.7 19.1Z" fill="currentColor" opacity=".5"/></g>
   <g id="i-lantern"><path d="M9 3 h6 M8 5 h8 l-1 12 h-6z M8 19 h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><path d="M12 9 c2 2 2 4 0 5 c-2 -1 -2 -3 0 -5z" fill="currentColor"/></g>
   <g id="i-moon"><path d="M60 8 C34 12 18 34 22 60 C26 84 48 100 72 96 C50 90 36 72 36 52 C36 34 46 18 60 8Z" fill="#c9cfd9"/></g>
+  <g id="p-city"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><rect x="10" y="80" width="20" height="40" fill="#3a4e80"/><rect x="35" y="70" width="16" height="50" fill="#3a4e80"/><rect x="55" y="65" width="12" height="55" fill="#3a4e80"/><rect x="72" y="75" width="14" height="45" fill="#3a4e80"/><rect x="90" y="80" width="18" height="40" fill="#3a4e80"/></g>
+  <g id="p-castle"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><rect x="20" y="60" width="80" height="60" fill="#2b3d66"/><rect x="30" y="40" width="12" height="20" fill="#2b3d66"/><rect x="50" y="40" width="12" height="20" fill="#2b3d66"/><rect x="70" y="40" width="12" height="20" fill="#2b3d66"/><rect x="35" y="25" width="50" height="15" fill="#1c2a4a"/><path d="M30 25 L60 10 L90 25" fill="#1c2a4a"/></g>
+  <g id="p-tower"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="45" y="20" width="30" height="80" fill="#3a4e80"/><rect x="40" y="15" width="40" height="10" fill="#2b3d66"/><rect x="35" y="10" width="50" height="5" fill="#1c2a4a"/><circle cx="50" cy="50" r="3" fill="#2a2320"/><circle cx="60" cy="50" r="3" fill="#2a2320"/><circle cx="70" cy="50" r="3" fill="#2a2320"/></g>
+  <g id="p-pagoda"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="20" y="70" width="25" height="50" fill="#3a4e80"/><rect x="50" y="60" width="30" height="60" fill="#3a4e80"/><rect x="85" y="70" width="25" height="50" fill="#3a4e80"/><path d="M20 70 L37 40 L55 70" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M50 60 L67 30 L85 60" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M85 70 L102 40 L110 70" stroke="#2b3d66" stroke-width="2" fill="none"/></g>
+  <g id="p-village"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><path d="M20 80 L40 40 L80 80 L100 40 L120 80" stroke="#fff" stroke-width="4" fill="none"/><circle cx="30" cy="50" r="8" fill="#fff"/><circle cx="90" cy="50" r="8" fill="#fff"/></g>
+  <g id="p-mountain"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><polygon points="20,80 60,20 100,80" fill="#fff"/><polygon points="40,60 60,40 80,60" fill="#fff"/></g>
+  <g id="p-france"><rect x="0" y="0" width="40" height="120" fill="#3f6fb5"/><rect x="40" y="0" width="40" height="120" fill="#fff"/><rect x="80" y="0" width="40" height="120" fill="#e6a63d"/></g>
+  <g id="p-japan"><rect x="0" y="0" width="120" height="120" fill="#fff"/><circle cx="60" cy="60" r="30" fill="#e6a63d"/><circle cx="60" cy="60" r="15" fill="#fff"/></g>
+  <g id="p-surprise"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><path d="M60 20 L65 40 L80 45 L70 55 L75 75 L60 65 L45 75 L50 55 L40 45 L55 40 Z" fill="#fff"/><path d="M60 80 Q65 85 70 80 Q65 90 60 85 Q55 90 50 80 Q55 85 60 80" fill="none" stroke="#fff" stroke-width="2"/></g>
 </defs>
 </svg>
 
@@ -699,15 +712,15 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <section class="step" data-step="where">
       <div class="ask"><button type="button" class="round prev" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg></button><h2>Where?</h2><button type="button" class="round next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"/></svg></button></div>
       <div class="tiles c2" id="places">
-        <label class="tile" style="--i:0"><input type="radio" name="where" value="New York City" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><text x="60" y="60" text-anchor="middle" fill="#fff" font-size="60" font-family="system-ui">🏙️</text></svg>New York City<span class="seal"></span></label>
-        <label class="tile" style="--i:1"><input type="radio" name="where" value="London"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><text x="60" y="60" text-anchor="middle" fill="#fff" font-size="60" font-family="system-ui">🏰</text></svg>London<span class="seal"></span></label>
-        <label class="tile" style="--i:2"><input type="radio" name="where" value="Paris"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><text x="60" y="60" text-anchor="middle" fill="#fff" font-size="60" font-family="system-ui">🗼</text></svg>Paris<span class="seal"></span></label>
-        <label class="tile" style="--i:3"><input type="radio" name="where" value="Tokyo"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><text x="60" y="60" text-anchor="middle" fill="#fff" font-size="60" font-family="system-ui">🏯</text></svg>Tokyo<span class="seal"></span></label>
+        <label class="tile" style="--i:0"><input type="radio" name="where" value="New York City" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><rect x="10" y="80" width="20" height="40" fill="#3a4e80"/><rect x="35" y="70" width="16" height="50" fill="#3a4e80"/><rect x="55" y="65" width="12" height="55" fill="#3a4e80"/><rect x="72" y="75" width="14" height="45" fill="#3a4e80"/><rect x="90" y="80" width="18" height="40" fill="#3a4e80"/><rect x="15" y="60" width="8" height="12" fill="#2a2320"/><rect x="40" y="55" width="6" height="10" fill="#2a2320"/><rect x="60" y="52" width="6" height="10" fill="#2a2320"/><rect x="78" y="58" width="6" height="10" fill="#2a2320"/><rect x="95" y="60" width="8" height="12" fill="#2a2320"/></svg>New York City<span class="seal"></span></label>
+        <label class="tile" style="--i:1"><input type="radio" name="where" value="London"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><rect x="20" y="60" width="80" height="60" fill="#2b3d66"/><rect x="30" y="40" width="12" height="20" fill="#2b3d66"/><rect x="50" y="40" width="12" height="20" fill="#2b3d66"/><rect x="70" y="40" width="12" height="20" fill="#2b3d66"/><rect x="35" y="25" width="50" height="15" fill="#1c2a4a"/><path d="M30 25 L60 10 L90 25" fill="#1c2a4a"/></svg>London<span class="seal"></span></label>
+        <label class="tile" style="--i:2"><input type="radio" name="where" value="Paris"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="45" y="20" width="30" height="80" fill="#3a4e80"/><rect x="40" y="15" width="40" height="10" fill="#2b3d66"/><rect x="35" y="10" width="50" height="5" fill="#1c2a4a"/><circle cx="50" cy="50" r="3" fill="#2a2320"/><circle cx="60" cy="50" r="3" fill="#2a2320"/><circle cx="70" cy="50" r="3" fill="#2a2320"/></svg>Paris<span class="seal"></span></label>
+        <label class="tile" style="--i:3"><input type="radio" name="where" value="Tokyo"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="20" y="70" width="25" height="50" fill="#3a4e80"/><rect x="50" y="60" width="30" height="60" fill="#3a4e80"/><rect x="85" y="70" width="25" height="50" fill="#3a4e80"/><path d="M20 70 L37 40 L55 70" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M50 60 L67 30 L85 60" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M85 70 L102 40 L110 70" stroke="#2b3d66" stroke-width="2" fill="none"/></svg>Tokyo<span class="seal"></span></label>
         <label class="tile" style="--i:4"><input type="radio" name="where" value="Small village"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><path d="M20 80 L40 40 L80 80 L100 40 L120 80" stroke="#fff" stroke-width="4" fill="none"/><circle cx="30" cy="50" r="8" fill="#fff"/><circle cx="90" cy="50" r="8" fill="#fff"/></svg>Village<span class="seal"></span></label>
         <label class="tile" style="--i:5"><input type="radio" name="where" value="Mountain town"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><polygon points="20,80 60,20 100,80" fill="#fff"/><polygon points="40,60 60,40 80,60" fill="#fff"/></svg>Mountain<span class="seal"></span></label>
         <label class="tile" style="--i:6"><input type="radio" name="where" value="France"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="40" height="120" fill="#3f6fb5"/><rect x="40" y="0" width="40" height="120" fill="#fff"/><rect x="80" y="0" width="40" height="120" fill="#e6a63d"/></svg>France<span class="seal"></span></label>
         <label class="tile" style="--i:7"><input type="radio" name="where" value="Japan"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#fff"/><circle cx="60" cy="60" r="30" fill="#e6a63d"/><circle cx="60" cy="60" r="15" fill="#fff"/></svg>Japan<span class="seal"></span></label>
-        <label class="tile" style="--i:8"><input type="radio" name="where" value="Surprise me"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><text x="60" y="55" text-anchor="middle" fill="#fff" font-size="24" font-family="system-ui">✨</text><text x="60" y="85" text-anchor="middle" fill="#fff" font-size="24" font-family="system-ui">?</text></svg>Surprise me<span class="seal"></span></label>
+        <label class="tile" style="--i:8"><input type="radio" name="where" value="Surprise me"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><path d="M60 20 L65 40 L80 45 L70 55 L75 75 L60 65 L45 75 L50 55 L40 45 L55 40 Z" fill="#fff"/><path d="M60 80 Q65 85 70 80 Q65 90 60 85 Q55 90 50 80 Q55 85 60 80" fill="none" stroke="#fff" stroke-width="2"/></svg>Surprise me<span class="seal"></span></label>
       </div>
     </section>
 
@@ -799,10 +812,10 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
       <button class="stopbtn" id="stop" type="button" aria-label="Stop story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button>
     </div>
     <div class="skip-controls">
-      <button class="skip-btn" id="prev-story" type="button" aria-label="Previous story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg><span class="skip-label">Story</span></button>
-      <button class="skip-btn" id="prev-paragraph" type="button" aria-label="Previous paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg><span class="skip-label">Para</span></button>
-      <button class="skip-btn" id="next-paragraph" type="button" aria-label="Next paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"/></svg><span class="skip-label">Para</span></button>
-      <button class="skip-btn" id="next-story" type="button" aria-label="Next story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"/></svg><span class="skip-label">Story</span></button>
+      <button class="skip-btn" id="prev-story" type="button" aria-label="Previous story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-story"/></svg><span class="skip-label">Story</span></button>
+      <button class="skip-btn" id="prev-paragraph" type="button" aria-label="Previous paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-paragraph"/></svg><span class="skip-label">Part</span></button>
+      <button class="skip-btn" id="next-paragraph" type="button" aria-label="Next paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-paragraph"/></svg><span class="skip-label">Part</span></button>
+      <button class="skip-btn" id="next-story" type="button" aria-label="Next story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-story"/></svg><span class="skip-label">Story</span></button>
     </div>
   </div>
 </section>
@@ -831,6 +844,17 @@ const WORLDS = {
   'Dinosaur island': {key: 'dino', place: 'dinosaur island', title: 'Dinosaur Island'},
   'Farm': {key: 'farm', place: 'the farm', title: 'the Farm'},
   'Snow mountain': {key: 'snow', place: 'the snow mountain', title: 'the Snow Mountain'}
+};
+const PLACES = {
+  'New York City': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><rect x="10" y="80" width="20" height="40" fill="#3a4e80"/><rect x="35" y="70" width="16" height="50" fill="#3a4e80"/><rect x="55" y="65" width="12" height="55" fill="#3a4e80"/><rect x="72" y="75" width="14" height="45" fill="#3a4e80"/><rect x="90" y="80" width="18" height="40" fill="#3a4e80"/></svg>',
+  'London': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><rect x="20" y="60" width="80" height="60" fill="#2b3d66"/><rect x="30" y="40" width="12" height="20" fill="#2b3d66"/><rect x="50" y="40" width="12" height="20" fill="#2b3d66"/><rect x="70" y="40" width="12" height="20" fill="#2b3d66"/><rect x="35" y="25" width="50" height="15" fill="#1c2a4a"/><path d="M30 25 L60 10 L90 25" fill="#1c2a4a"/></svg>',
+  'Paris': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="45" y="20" width="30" height="80" fill="#3a4e80"/><rect x="40" y="15" width="40" height="10" fill="#2b3d66"/><rect x="35" y="10" width="50" height="5" fill="#1c2a4a"/><circle cx="50" cy="50" r="3" fill="#2a2320"/><circle cx="60" cy="50" r="3" fill="#2a2320"/><circle cx="70" cy="50" r="3" fill="#2a2320"/></svg>',
+  'Tokyo': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="20" y="70" width="25" height="50" fill="#3a4e80"/><rect x="50" y="60" width="30" height="60" fill="#3a4e80"/><rect x="85" y="70" width="25" height="50" fill="#3a4e80"/><path d="M20 70 L37 40 L55 70" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M50 60 L67 30 L85 60" stroke="#2b3d66" stroke-width="2" fill="none"/><path d="M85 70 L102 40 L110 70" stroke="#2b3d66" stroke-width="2" fill="none"/></svg>',
+  'Small village': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><path d="M20 80 L40 40 L80 80 L100 40 L120 80" stroke="#fff" stroke-width="4" fill="none"/><circle cx="30" cy="50" r="8" fill="#fff"/><circle cx="90" cy="50" r="8" fill="#fff"/></svg>',
+  'Mountain town': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><polygon points="20,80 60,20 100,80" fill="#fff"/><polygon points="40,60 60,40 80,60" fill="#fff"/></svg>',
+  'France': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="40" height="120" fill="#3f6fb5"/><rect x="40" y="0" width="40" height="120" fill="#fff"/><rect x="80" y="0" width="40" height="120" fill="#e6a63d"/></svg>',
+  'Japan': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#fff"/><circle cx="60" cy="60" r="30" fill="#e6a63d"/><circle cx="60" cy="60" r="15" fill="#fff"/></svg>',
+  'Surprise me': '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><path d="M60 20 L65 40 L80 45 L70 55 L75 75 L60 65 L45 75 L50 55 L40 45 L55 40 Z" fill="#fff"/><path d="M60 80 Q65 85 70 80 Q65 90 60 85 Q55 90 50 80 Q55 85 60 80" fill="none" stroke="#fff" stroke-width="2"/></svg>'
 };
 const PLACES = {
   'New York City': 'New York City',
@@ -897,13 +921,14 @@ function worldPic(key, cls = 'pic') {
 }
 function pic(group, value) {
   if (group === 'world') return worldPic(WORLDS[value].key);
-  if (group === 'where') return `<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><text x="60" y="70" text-anchor="middle" fill="#fff" font-size="30" font-family="system-ui">📍</text></svg>`;
+  if (group === 'where') return PLACES[value] || '<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/></svg>';
   const id = {who: 'l-' + (LISTENERS.get(value) || 'group'), friend: 'f-' + FRIENDS[value], mood: 'm-' + MOODS[value], length: 'b-' + LENGTHS[value], voice: 'v-' + (value === 'bm_george' ? 'george' : 'emma')}[group];
   return `<svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#${id}"/></svg>`;
 }
 function cover(c) {
   const w = WORLDS[c.world].key;
-  return `<svg class="cover" viewBox="200 40 600 380" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="0" y="-600" width="1000" height="1020" fill="url(#g-night)"/><use href="#bg-${w}"/><use href="#f-${FRIENDS[c.friend]}" transform="translate(330 262)"/></svg>`;
+  const placeKey = {'New York City': 'city', 'London': 'castle', 'Paris': 'tower', 'Tokyo': 'pagoda', 'Small village': 'village', 'Mountain town': 'mountain', 'France': 'france', 'Japan': 'japan', 'Surprise me': 'surprise'}[c.where] || 'city';
+  return `<svg class="cover" viewBox="200 40 600 380" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="0" y="-600" width="1000" height="1020" fill="url(#g-night)"/><use href="#bg-${w}"/><use href="#f-${FRIENDS[c.friend]}" transform="translate(330 262)"/><use href="#p-${placeKey}" transform="translate(800 320) scale(0.3)"/></svg>`;
 }
 
 /* ---------- choices and the scene ---------- */
@@ -916,7 +941,7 @@ let stepIndex = 0;
 function renderChips() {
   const c = choices();
   $('chips').replaceChildren(...ORDER.slice(0, 7).map((g, i) => {
-    const done = i <= stepIndex || stepIndex === 6;
+    const done = i <= stepIndex || stepIndex === 7;
     const cur = i === stepIndex ? ' aria-current="step"' : '';
     const word = g === 'voice' ? VOICES[c.voice] : c[g];
     const button = document.createElement('button'); button.type = 'button'; button.className = 'chip' + (done ? '' : ' todo'); button.dataset.go = i;
