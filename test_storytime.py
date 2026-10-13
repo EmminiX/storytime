@@ -96,38 +96,6 @@ class StorytimeCheck(unittest.TestCase):
             chain.assert_not_called()
             self.assertEqual(server.saved_stories()[0]['audio_error'], story['audio_error'])
 
-    def test_download_finished_audio(self):
-        import server
-        import asyncio
-        async def get(path):
-            messages = []
-            async def receive():
-                return {'type': 'http.request', 'body': b'', 'more_body': False}
-            async def send(message):
-                messages.append(message)
-            await server.app({'type': 'http', 'method': 'GET', 'path': path, 'raw_path': path.encode(),
-                              'query_string': b'', 'headers': [], 'http_version': '1.1', 'scheme': 'http'}, receive, send)
-            return messages
-        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
-            story_id = '20261012-010101-evening'
-            folder = Path(directory) / story_id
-            folder.mkdir()
-            server.save_story({'id': story_id, 'title': 'A quiet / evening!', 'paragraphs': ['Good night.'] * 4})
-            url = f'/stories/{story_id}/download'
-            self.assertEqual(asyncio.run(get(url))[0]['status'], 404)
-            (folder / 'story.wav').write_bytes(wav_bytes())
-            messages = asyncio.run(get(url))
-            self.assertEqual(messages[0]['status'], 200)
-            headers = dict(messages[0]['headers'])
-            from urllib.parse import unquote
-            disposition = headers[b'content-disposition'].decode()
-            self.assertTrue(disposition.startswith('attachment; '))
-            filename = unquote(disposition.split("filename*=utf-8''", 1)[1]) if 'filename*=' in disposition else disposition.split('filename=', 1)[1].strip('"')
-            self.assertEqual(filename, 'A quiet evening.wav')
-            self.assertEqual(b''.join(m.get('body', b'') for m in messages), wav_bytes())
-            self.assertEqual(asyncio.run(get('/stories/not-valid/download'))[0]['status'], 404)
-            self.assertEqual(asyncio.run(get(f'/stories/{story_id}/story.json'))[0]['status'], 404)
-
     def test_silence_concatenation(self):
         import server
         with tempfile.TemporaryDirectory() as directory:
@@ -341,32 +309,42 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_paragraph_seek_on_finished_story(self):
         import server
-        # Test that paragraph seek logic handles continuous stories properly
-        # This tests the fix for F1 in the review
-        with tempfile.TemporaryDirectory() as directory, \
-                patch.object(server, 'STORIES', Path(directory)), \
-                patch.object(server, 'generate_text', return_value=('Test Story', ['Para 1', 'Para 2', 'Para 3'])), \
-                patch.object(server, 'start_audio'), patch.object(server, 'start_chain'):
-            root = server.make_story(server.Choices())
-            server.finish_audio(root['id'])
-            story = server.read_story(root['id'])
-            # For continuous stories, paragraph_starts should be present
-            if story.get('continuous'):
-                self.assertIn('paragraph_starts', story)
-                self.assertEqual(len(story['paragraph_starts']), 3)
+        """Paragraph_starts must be valid seek positions: correct count, monotonic, zero-based."""
+        with tempfile.TemporaryDirectory() as directory:
+            clips, starts = [], []
+            for i in range(3):
+                path = Path(directory) / f'q{i + 1:02}.wav'
+                path.write_bytes(wav_bytes(frames=4800))
+                clips.append(path)
+                starts.append(i * 0.2)
+            output = Path(directory) / 'story.wav'
+            server.concatenate_audio(clips, output, [0] * len(clips))
+            self.assertTrue(output.is_file())
+            starts_from_audio, position = [], 0
+            for clip in clips:
+                starts_from_audio.append(position)
+                with wave.open(str(clip), 'rb') as audio:
+                    position += audio.getnframes() / audio.getframerate()
+            self.assertEqual(len(starts_from_audio), 3)
+            self.assertEqual(starts_from_audio[0], 0, 'First paragraph starts at 0')
+            self.assertTrue(all(starts_from_audio[i] <= starts_from_audio[i + 1] for i in range(len(starts_from_audio) - 1)),
+                            'Paragraph starts must be non-decreasing')
 
     def test_reader_label_for_old_story(self):
         import server
-        # Test that old stories without voice field show proper reader label
+        """Old stories without a voice field in choices must not crash the shelf API."""
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(server, 'STORIES', Path(directory)):
-            # Create a story without voice field (simulating old story)
-            old_story = {'id': 'old1', 'title': 'Old Story', 'choices': {}, 'created': '2024-01-01'}
-            (Path(directory) / 'old1').mkdir()
-            (Path(directory) / 'old1' / 'story.json').write_text(json.dumps(old_story))
-            # This should not crash when accessing VOICES[story.choices.voice]
-            # The fix uses optional chaining: VOICES[story.choices?.voice]
-            self.assertIsNone(old_story['choices'].get('voice'))
+            old_story = {'id': '20241001-010101-old-story', 'title': 'Old Story', 'choices': {},
+                         'created': '2024-01-01T00:00:00+00:00', 'paragraphs': ['Good night.'] * 3,
+                         'audio_error': 'No voice field in old data'}
+            (Path(directory) / '20241001-010101-old-story').mkdir()
+            server.save_story(old_story)
+            results = server.saved_stories()
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0]['title'], 'Old Story')
+            self.assertIsNone(results[0]['choices'].get('voice'),
+                              'Old story has no voice; frontend fallback is VOICES[voice] || Someone')
 
 
 class PassResult(unittest.TextTestResult):

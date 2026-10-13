@@ -297,7 +297,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .book .go{width:44px;height:44px;border-radius:50%;background:var(--accent);display:grid;place-items:center;color:#1e2733}
 .book .go svg{width:20px;height:20px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important;animation:none!important}}
-@media(max-width:700px){.pill{min-height:76px}.book{grid-template-columns:72px minmax(0,1fr);gap:10px}.book .cover{width:72px;height:60px}.book .go{display:none}.book strong{font-size:16px}.book span.when{font-size:14px}}
+@media(max-width:700px){.pill{min-height:76px}.book{grid-template-columns:72px minmax(0,1fr);gap:10px}.book .cover{width:72px;height:60px}.book .go{display:none}.book strong{font-size:16px}.book span.when{font-size:16px}}
 @media(orientation:landscape) and (min-width:1000px){.ask h2,.step>h2{font-size:48px}}
 </style>
 </head>
@@ -1148,7 +1148,7 @@ function playParagraph() {
 function previousParagraph() {
   if (!story) return;
   if (paragraph > 0) {
-    paragraph--;
+    finished = false; paragraph--;
     highlight();
     if (wantsPlay) { playParagraph(); }
     say(`Paragraph ${paragraph + 1} of ${story.total}`);
@@ -1159,7 +1159,7 @@ function previousParagraph() {
 function nextParagraph() {
   if (!story) return;
   if (paragraph < story.total - 1) {
-    paragraph++;
+    finished = false; paragraph++;
     highlight();
     if (wantsPlay) { playParagraph(); }
     say(`Paragraph ${paragraph + 1} of ${story.total}`);
@@ -1265,8 +1265,7 @@ async function poll() {
   finally { pollBusy = false; }
 }
 if ('mediaSession' in navigator) {
-  const actions = {play:resume, pause, nexttrack:nextStory, previoustrack:previousStory,
-    seekforward:null, seekbackward:null};
+  const actions = {play:resume, pause, nexttrack:nextStory, previoustrack:previousStory};
   for (const [action, handler] of Object.entries(actions)) {
     try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* This browser does not expose this control. */ }
   }

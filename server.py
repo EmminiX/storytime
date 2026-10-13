@@ -476,17 +476,6 @@ def saved_stories():
 def public_config():
     return {'listeners': [listener.model_dump() for listener in CONFIG.listeners]}
 
-@app.get('/stories/{story_id}/download')
-def download_story(story_id: str):
-    """Download route kept for direct access, not used by any UI screen."""
-    story = read_story(story_id)
-    response = audio_file(story_id, 'story.wav')
-    filename = ' '.join(re.sub(r'[^\w -]', '', story['title']).split())[:100] or 'Story'
-    return FileResponse(response.path, media_type='audio/wav', filename=filename + '.wav')
-
-
-
-
 
 @app.get('/stories/{story_id}/{filename}')
 def audio_file(story_id: str, filename: str):
