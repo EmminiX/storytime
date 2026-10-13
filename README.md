@@ -30,7 +30,7 @@ flowchart TD
     E --> F[Lock-screen next / previous story]
 ```
 
-The first paragraph can play while the rest is being made. Completed stories use one WAV file with short pauses between paragraphs. The player shows text, the reader, and the engine used for the current paragraph. Save downloads the finished WAV. The link appears when that file is ready.
+The first paragraph can play while the rest is being made. Completed stories use one WAV file with short pauses between paragraphs. The player shows text, the reader, and the engine used for the current paragraph.
 
 Media Session connects play, pause, and next/previous story to browser and lock-screen controls where supported. Browser and iPad support varies. Playback starts with a tap. The screen dims after 20 seconds of playback.
 

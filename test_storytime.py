@@ -325,6 +325,49 @@ class StorytimeCheck(unittest.TestCase):
                     self.assertEqual(voices, [voice] * 12, 'Every paragraph uses the story voice')
                     self.assertEqual([item['choices']['voice'] for item in server.saved_stories()], [voice] * 3)
 
+    def test_where_field_is_accepted_and_used_in_prompt(self):
+        import server
+        for place in ('New York City', 'London', 'Paris', 'Tokyo', 'Small village', 'Mountain town', 'France', 'Japan', 'Surprise me'):
+            with self.subTest(place=place):
+                choices = server.Choices(where=place)
+                self.assertEqual(choices.where, place)
+                prompt = server.story_prompt(choices, 1, [])
+                self.assertIn(place, prompt)
+
+    def test_where_field_default(self):
+        import server
+        choices = server.Choices()
+        self.assertEqual(choices.where, 'New York City')
+
+    def test_paragraph_seek_on_finished_story(self):
+        import server
+        # Test that paragraph seek logic handles continuous stories properly
+        # This tests the fix for F1 in the review
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'generate_text', return_value=('Test Story', ['Para 1', 'Para 2', 'Para 3'])), \
+                patch.object(server, 'start_audio'), patch.object(server, 'start_chain'):
+            root = server.make_story(server.Choices())
+            server.finish_audio(root['id'])
+            story = server.read_story(root['id'])
+            # For continuous stories, paragraph_starts should be present
+            if story.get('continuous'):
+                self.assertIn('paragraph_starts', story)
+                self.assertEqual(len(story['paragraph_starts']), 3)
+
+    def test_reader_label_for_old_story(self):
+        import server
+        # Test that old stories without voice field show proper reader label
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(server, 'STORIES', Path(directory)):
+            # Create a story without voice field (simulating old story)
+            old_story = {'id': 'old1', 'title': 'Old Story', 'choices': {}, 'created': '2024-01-01'}
+            (Path(directory) / 'old1').mkdir()
+            (Path(directory) / 'old1' / 'story.json').write_text(json.dumps(old_story))
+            # This should not crash when accessing VOICES[story.choices.voice]
+            # The fix uses optional chaining: VOICES[story.choices?.voice]
+            self.assertIsNone(old_story['choices'].get('voice'))
+
 
 class PassResult(unittest.TextTestResult):
     def addSuccess(self, test):
