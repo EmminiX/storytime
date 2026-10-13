@@ -30,7 +30,7 @@ flowchart TD
     E --> F[Lock-screen next / previous story]
 ```
 
-The first paragraph can play while the rest is being made. Completed stories use one WAV file with short pauses between paragraphs. The player shows text, the reader, and the engine used for the current paragraph. Save downloads the finished WAV. The link appears when that file is ready.
+The first paragraph can play while the rest is being made. Completed stories use one WAV file with short pauses between paragraphs. The player shows text, the reader, and the engine used for the current paragraph.
 
 Media Session connects play, pause, and next/previous story to browser and lock-screen controls where supported. Browser and iPad support varies. Playback starts with a tap. The screen dims after 20 seconds of playback.
 
@@ -68,6 +68,8 @@ Run the server:
 ```
 
 Open `http://127.0.0.1:8787` on that computer. Keep the terminal running, and use Ctrl+C to stop it. Run the offline checks with `.venv/bin/python test_storytime.py`.
+
+A browser check drives the paragraph skip in a real browser: `node browser_test.mjs`. It needs Node and Playwright (if Playwright is not installed next to the project, set `PLAYWRIGHT_MODULE` to the playwright module path). It starts the server on a free port, seeds one finished story, and presses next and previous paragraph on the player, so no provider keys may be set while it runs.
 
 ## Using an iPad on the home network
 

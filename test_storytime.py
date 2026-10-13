@@ -96,38 +96,6 @@ class StorytimeCheck(unittest.TestCase):
             chain.assert_not_called()
             self.assertEqual(server.saved_stories()[0]['audio_error'], story['audio_error'])
 
-    def test_download_finished_audio(self):
-        import server
-        import asyncio
-        async def get(path):
-            messages = []
-            async def receive():
-                return {'type': 'http.request', 'body': b'', 'more_body': False}
-            async def send(message):
-                messages.append(message)
-            await server.app({'type': 'http', 'method': 'GET', 'path': path, 'raw_path': path.encode(),
-                              'query_string': b'', 'headers': [], 'http_version': '1.1', 'scheme': 'http'}, receive, send)
-            return messages
-        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
-            story_id = '20261012-010101-evening'
-            folder = Path(directory) / story_id
-            folder.mkdir()
-            server.save_story({'id': story_id, 'title': 'A quiet / evening!', 'paragraphs': ['Good night.'] * 4})
-            url = f'/stories/{story_id}/download'
-            self.assertEqual(asyncio.run(get(url))[0]['status'], 404)
-            (folder / 'story.wav').write_bytes(wav_bytes())
-            messages = asyncio.run(get(url))
-            self.assertEqual(messages[0]['status'], 200)
-            headers = dict(messages[0]['headers'])
-            from urllib.parse import unquote
-            disposition = headers[b'content-disposition'].decode()
-            self.assertTrue(disposition.startswith('attachment; '))
-            filename = unquote(disposition.split("filename*=utf-8''", 1)[1]) if 'filename*=' in disposition else disposition.split('filename=', 1)[1].strip('"')
-            self.assertEqual(filename, 'A quiet evening.wav')
-            self.assertEqual(b''.join(m.get('body', b'') for m in messages), wav_bytes())
-            self.assertEqual(asyncio.run(get('/stories/not-valid/download'))[0]['status'], 404)
-            self.assertEqual(asyncio.run(get(f'/stories/{story_id}/story.json'))[0]['status'], 404)
-
     def test_silence_concatenation(self):
         import server
         with tempfile.TemporaryDirectory() as directory:
@@ -200,22 +168,17 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_manifest_served(self):
         import server
-        import asyncio
-        async def get(path):
-            messages = []
-            async def receive():
-                return {'type': 'http.request', 'body': b'', 'more_body': False}
-            async def send(message):
-                messages.append(message)
-            await server.app({'type': 'http', 'method': 'GET', 'path': path, 'raw_path': path.encode(),
-                              'query_string': b'', 'headers': [], 'http_version': '1.1',
-                              'scheme': 'http', 'server': ('localhost', 8787), 'client': ('localhost', 1)}, receive, send)
-            self.assertEqual(messages[0]['status'], 200)
-            return b''.join(m.get('body', b'') for m in messages)
-        manifest = json.loads(asyncio.run(get('/manifest.webmanifest')))
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        response = client.get('/manifest.webmanifest')
+        self.assertEqual(response.status_code, 200)
+        manifest = response.json()
         self.assertEqual(manifest['display'], 'standalone')
-        asyncio.run(get(manifest['icons'][0]['src']))
-        self.assertIn(b'apple-mobile-web-app-capable', asyncio.run(get('/')))
+        icon_response = client.get(manifest['icons'][0]['src'])
+        self.assertEqual(icon_response.status_code, 200)
+        index_response = client.get('/')
+        self.assertEqual(index_response.status_code, 200)
+        self.assertIn(b'apple-mobile-web-app-capable', index_response.content)
 
     def test_story_contract_and_storage(self):
         self.assertIsNotNone(importlib.util.find_spec('server'), 'Storytime server must exist')
@@ -324,6 +287,74 @@ class StorytimeCheck(unittest.TestCase):
                     self.assertIsNone(current)
                     self.assertEqual(voices, [voice] * 12, 'Every paragraph uses the story voice')
                     self.assertEqual([item['choices']['voice'] for item in server.saved_stories()], [voice] * 3)
+
+    def test_where_field_is_accepted_and_used_in_prompt(self):
+        import server
+        for place in ('New York City', 'London', 'Paris', 'Tokyo', 'Small village', 'Mountain town', 'France', 'Japan', 'Surprise me'):
+            with self.subTest(place=place):
+                choices = server.Choices(where=place)
+                self.assertEqual(choices.where, place)
+                prompt = server.story_prompt(choices, 1, [])
+                self.assertIn(place, prompt)
+
+    def test_where_field_default(self):
+        import server
+        choices = server.Choices()
+        self.assertIsNone(choices.where, 'where should be None by default, not New York City')
+        prompt = server.story_prompt(choices, 1, [])
+        self.assertNotIn('New York City', prompt, 'Old stories without where should not get New York City in prompt')
+
+    def test_paragraph_seek_on_finished_story(self):
+        import server
+        """Paragraph_starts produced by finish_audio must be valid seek positions."""
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            paragraphs = ['Para one.', 'Para two.', 'Para three.']
+            story_id = '20261013-020202-seek-test'
+            folder = Path(directory) / story_id
+            folder.mkdir()
+            story = {'id': story_id, 'choices': server.Choices().model_dump(),
+                     'title': 'Seek Test', 'paragraphs': paragraphs, 'number': 1,
+                     'created': '2026-10-13T02:02:02+00:00', 'next_story_id': None}
+            server.save_story(story)
+            def fake_voice(args, **kwargs):
+                Path(args[4]).write_bytes(wav_bytes(frames=4800))
+            with patch.object(server, 'mistral_speech', side_effect=RuntimeError('offline')), \
+                    patch.object(server.subprocess, 'run', side_effect=fake_voice):
+                server.finish_audio(story_id)
+            saved = server.read_story(story_id)
+            self.assertIsNone(saved.get('audio_error'), 'finish_audio must clear audio_error')
+            self.assertIn('paragraph_starts', saved, 'finish_audio must store paragraph_starts')
+            starts = saved['paragraph_starts']
+            self.assertEqual(len(starts), len(paragraphs),
+                            'One start per paragraph')
+            self.assertEqual(starts[0], 0, 'First paragraph starts at 0')
+            self.assertTrue(all(starts[i] <= starts[i + 1] for i in range(len(starts) - 1)),
+                            'Paragraph starts must be monotonic')
+            for i in range(1, len(starts)):
+                self.assertGreater(starts[i], starts[i - 1],
+                                  f'Paragraph {i + 1} starts after paragraph {i}')
+            self.assertTrue((folder / 'story.wav').is_file(),
+                           'Continuous WAV must exist for seeking')
+
+    def test_reader_label_for_old_story(self):
+        import server
+        """Old stories missing voice in choices must not crash the shelf API and must show no voice."""
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(server, 'STORIES', Path(directory)):
+            old_story = {'id': '20241001-010101-old-story', 'title': 'Old Story', 'choices': {},
+                         'created': '2024-01-01T00:00:00+00:00', 'paragraphs': ['Good night.'] * 3,
+                         'audio_error': 'No voice field in old data'}
+            (Path(directory) / '20241001-010101-old-story').mkdir()
+            server.save_story(old_story)
+            results = server.saved_stories()
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0]['title'], 'Old Story')
+            self.assertIsNone(results[0]['choices'].get('voice'),
+                              'Old story has no voice; frontend falls back to VOICES[voice] || "Someone"')
+            # Verify the saved_stories response itself does not crash
+            self.assertEqual(results[0]['id'], '20241001-010101-old-story')
+            self.assertEqual(results[0]['choices'], {},
+                            'Empty choices dict for stories saved before voice was added')
 
 
 class PassResult(unittest.TextTestResult):
