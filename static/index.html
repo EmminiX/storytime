@@ -585,6 +585,23 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
     <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
   </g>
+  <g id="l-girl">
+    <path d="M30 114 C30 84 42 72 60 72 C78 72 90 84 90 114Z" fill="#c2557e"/>
+    <path d="M31 52 C31 74 28 90 35 95 C39 84 39 70 41 58Z" fill="#4a2e1e"/>
+    <path d="M89 52 C89 74 92 90 85 95 C81 84 81 70 79 58Z" fill="#4a2e1e"/>
+    <circle cx="60" cy="46" r="24" fill="#f1c9a5"/>
+    <path d="M34 46 C34 20 50 12 60 12 C70 12 86 20 86 46 C80 36 72 32 60 32 C48 32 40 36 34 46Z" fill="#4a2e1e"/>
+    <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
+    <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M85 16 l3.5 8 8 3.5 -8 3.5 -3.5 8 -3.5 -8 -8 -3.5 8 -3.5z" fill="#e6a63d"/>
+  </g>
+  <g id="l-boy">
+    <path d="M30 114 C30 84 42 72 60 72 C78 72 90 84 90 114Z" fill="#3f6fb5"/>
+    <circle cx="60" cy="46" r="24" fill="#f1c9a5"/>
+    <path d="M36 44 C36 22 50 13 62 13 C75 13 84 23 84 42 C78 33 68 31 58 33 C50 34 42 37 36 44Z" fill="#3e2a1e"/>
+    <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
+    <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
   <g id="l-group"><g transform="translate(-6 18) scale(.72)"><use href="#l-portrait-0"/></g><g transform="translate(42 18) scale(.72)"><use href="#l-portrait-1"/></g></g>
 
   <!-- moods -->
@@ -922,7 +939,7 @@ async function loadListeners() {
     const names = listeners.map(item => item.name);
     if (names.length >= 2) names.push(names.length === 2 ? 'Both' : 'Everyone');
     $('listeners').replaceChildren(...names.map((name, index) => {
-      LISTENERS.set(name, index < listeners.length ? 'portrait-' + (index % 2) : 'group');
+      LISTENERS.set(name, index < listeners.length ? (listeners[index].picture || 'portrait-' + (index % 2)) : 'group');
       const label = document.createElement('label'); label.className = 'tile'; label.style.setProperty('--i', index);
       const input = document.createElement('input');
       input.type = 'radio'; input.name = 'who'; input.value = name; input.checked = index === 0;

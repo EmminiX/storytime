@@ -49,7 +49,7 @@ class StorytimeCheck(unittest.TestCase):
     def test_config_age_flavour_and_public_response(self):
         import server
         from pydantic import ValidationError
-        self.assertEqual(server.public_config(), {'listeners': [{'name': 'Robin', 'age': 8}, {'name': 'Sam', 'age': 5}]})
+        self.assertEqual(server.public_config(), {'listeners': [{'name': 'Robin', 'age': 8}, {'name': 'Sam', 'age': 5, 'picture': 'girl'}]})
         server.CONFIG.listeners[0].age = 9
         server.CONFIG.local_flavour = 'Gentle seaside details are welcome.'
         prompt = server.story_prompt(server.Choices(who='Robin'), 1, [])
@@ -64,6 +64,24 @@ class StorytimeCheck(unittest.TestCase):
                         {'fallback_tts_command': 'reader {text}'}):
             with self.assertRaises(ValidationError):
                 server.Config(**(valid | invalid))
+
+    def test_listener_picture_is_optional_and_validated(self):
+        import server
+        from pydantic import ValidationError
+        valid = server.Config(**{
+            'listeners': [{'name': 'Robin', 'age': 8}, {'name': 'Sam', 'age': 5}],
+            'mistral_voices': {'bf_emma': 'one', 'bm_george': 'two'},
+        }).model_dump()
+        for picture in ('girl', 'boy'):
+            config = server.Config(**(valid | {'listeners': [{'name': 'Robin', 'age': 8, 'picture': picture}, {'name': 'Sam', 'age': 5}]}) )
+            self.assertEqual([listener.picture for listener in config.listeners], [picture, None])
+        config = server.Config(**(valid | {'listeners': [{'name': 'Robin', 'age': 8}, {'name': 'Sam', 'age': 5, 'picture': 'girl'}]}))
+        self.assertIsNone(config.listeners[0].picture)
+        self.assertEqual(server.public_config()['listeners'][0], {'name': 'Robin', 'age': 8})
+        self.assertEqual(server.public_config()['listeners'][1], {'name': 'Sam', 'age': 5, 'picture': 'girl'})
+        for invalid in ('neutral', 'cat', ''):
+            with self.assertRaises(ValidationError):
+                server.Config(**(valid | {'listeners': [{'name': 'Robin', 'age': 8, 'picture': invalid}, {'name': 'Sam', 'age': 5}]}))
 
     def test_project_env_and_environment_precedence(self):
         import server

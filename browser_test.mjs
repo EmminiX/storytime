@@ -176,6 +176,16 @@ try {
   console.log(`PASS prev-paragraph: currentTime ${afterPrev.toFixed(2)}s is paragraph_starts[0]=${PARAGRAPH_STARTS[0]}s within 1s, audio source unchanged`);
   await page.close();
 
+  // MAY-737: a listener with picture "girl" shows the girl figure; the Short label reads 3 to 4 min.
+  {
+    const page = await run(1024, 768);
+    const figures = await page.evaluate(() => [...document.querySelectorAll('#listeners .tile')].map(tile => tile.querySelector('use')?.getAttribute('href')));
+    if (figures[0] !== '#l-portrait-0') throw new Error(`a listener without a picture shows ${figures[0]}, expected the neutral figure #l-portrait-0`);
+    if (figures[1] !== '#l-girl') throw new Error(`a listener with picture "girl" shows ${figures[1]}, expected the girl figure #l-girl`);
+    console.log('PASS listener pictures: a listener without a picture keeps the neutral figure, a listener with picture "girl" shows the girl figure');
+    await page.close();
+  }
+
   // MAY-706 item 1: a classic opens on one tap and plays its pre-rendered MP3.
   {
     const page = await run(1180, 820);
