@@ -1,5 +1,5 @@
 {
-  "listeners": [{"name": "Robin", "age": 8}, {"name": "Sam", "age": 5}],
+  "listeners": [{"name": "Robin", "age": 8}, {"name": "Sam", "age": 5, "picture": "girl"}],
   "local_flavour": "",
   "host": "127.0.0.1",
   "port": 8787,

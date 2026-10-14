@@ -585,6 +585,23 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
     <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
   </g>
+  <g id="l-girl">
+    <path d="M30 114 C30 84 42 72 60 72 C78 72 90 84 90 114Z" fill="#c2557e"/>
+    <path d="M31 52 C31 74 28 90 35 95 C39 84 39 70 41 58Z" fill="#4a2e1e"/>
+    <path d="M89 52 C89 74 92 90 85 95 C81 84 81 70 79 58Z" fill="#4a2e1e"/>
+    <circle cx="60" cy="46" r="24" fill="#f1c9a5"/>
+    <path d="M34 46 C34 20 50 12 60 12 C70 12 86 20 86 46 C80 36 72 32 60 32 C48 32 40 36 34 46Z" fill="#4a2e1e"/>
+    <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
+    <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M85 16 l3.5 8 8 3.5 -8 3.5 -3.5 8 -3.5 -8 -8 -3.5 8 -3.5z" fill="#e6a63d"/>
+  </g>
+  <g id="l-boy">
+    <path d="M30 114 C30 84 42 72 60 72 C78 72 90 84 90 114Z" fill="#3f6fb5"/>
+    <circle cx="60" cy="46" r="24" fill="#f1c9a5"/>
+    <path d="M36 44 C36 22 50 13 62 13 C75 13 84 23 84 42 C78 33 68 31 58 33 C50 34 42 37 36 44Z" fill="#3e2a1e"/>
+    <circle cx="51" cy="48" r="2.8" fill="#2a2320"/><circle cx="69" cy="48" r="2.8" fill="#2a2320"/>
+    <path d="M54 58 C57 61 63 61 66 58" stroke="#2a2320" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
   <g id="l-group"><g transform="translate(-6 18) scale(.72)"><use href="#l-portrait-0"/></g><g transform="translate(42 18) scale(.72)"><use href="#l-portrait-1"/></g></g>
 
   <!-- moods -->
@@ -789,9 +806,9 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <section class="step" data-step="length">
       <div class="ask"><button type="button" class="round prev" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg></button><h2>How long?</h2><button type="button" class="round next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"/></svg></button></div>
       <div class="tiles c3">
-        <label class="tile" style="--i:0"><input type="radio" name="length" value="Short" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-short"/></svg>Short<span class="minutes">4 to 6 min</span><span class="seal"></span></label>
-        <label class="tile" style="--i:1"><input type="radio" name="length" value="Medium"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-medium"/></svg>Medium<span class="minutes">8 to 11 min</span><span class="seal"></span></label>
-        <label class="tile" style="--i:2"><input type="radio" name="length" value="Long"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-long"/></svg>Long<span class="minutes">14 to 18 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:0"><input type="radio" name="length" value="Short" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-short"/></svg>Short<span class="minutes">3 to 4 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:1"><input type="radio" name="length" value="Medium"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-medium"/></svg>Medium<span class="minutes">5 to 6 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:2"><input type="radio" name="length" value="Long"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-long"/></svg>Long<span class="minutes">6 to 9 min</span><span class="seal"></span></label>
       </div>
     </section>
 
@@ -922,7 +939,7 @@ async function loadListeners() {
     const names = listeners.map(item => item.name);
     if (names.length >= 2) names.push(names.length === 2 ? 'Both' : 'Everyone');
     $('listeners').replaceChildren(...names.map((name, index) => {
-      LISTENERS.set(name, index < listeners.length ? 'portrait-' + (index % 2) : 'group');
+      LISTENERS.set(name, index < listeners.length ? (listeners[index].picture || 'portrait-' + (index % 2)) : 'group');
       const label = document.createElement('label'); label.className = 'tile'; label.style.setProperty('--i', index);
       const input = document.createElement('input');
       input.type = 'radio'; input.name = 'who'; input.value = name; input.checked = index === 0;
@@ -1004,7 +1021,7 @@ function renderSummary() {
   const place = c.where ? (PLACE_PHRASES[c.where] || c.where) : 'a magical place';
   add('A '); add(MOODS[c.mood] === 'sleepy' ? 'sleepy' : MOODS[c.mood], 1); add(' story for '); add(listenerHero(c.who), 1);
   add(': in '); add(place, 1); add(' at '); add(WORLDS[c.world].place, 1); add(' with a '); add(friendWord(c.friend), 1); add(', read by '); add(VOICES[c.voice], 1); add('. ');
-  add({short: '4 to 6 minutes.', medium: '8 to 11 minutes.', long: '14 to 18 minutes.'}[LENGTHS[c.length]]);
+  add({short: '3 to 4 minutes.', medium: '5 to 6 minutes.', long: '6 to 9 minutes.'}[LENGTHS[c.length]]);
 }
 const steps = [...form.querySelectorAll('.step')];
 function goTo(i) {

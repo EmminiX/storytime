@@ -42,6 +42,7 @@ class Listener(BaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str = Field(min_length=1, max_length=60)
     age: int = Field(strict=True, ge=1, le=18)
+    picture: Literal['girl', 'boy'] | None = None
 
     @model_validator(mode='after')
     def valid_name(self):
@@ -599,7 +600,7 @@ def saved_classics():
 
 @app.get('/api/config')
 def public_config():
-    return {'listeners': [listener.model_dump() for listener in CONFIG.listeners]}
+    return {'listeners': [listener.model_dump(exclude_none=True) for listener in CONFIG.listeners]}
 
 
 @app.get('/stories/{story_id}/{filename}')

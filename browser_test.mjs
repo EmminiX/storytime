@@ -176,6 +176,19 @@ try {
   console.log(`PASS prev-paragraph: currentTime ${afterPrev.toFixed(2)}s is paragraph_starts[0]=${PARAGRAPH_STARTS[0]}s within 1s, audio source unchanged`);
   await page.close();
 
+  // MAY-737: a listener with picture "girl" shows the girl figure; the Short label reads 3 to 4 min.
+  {
+    const page = await run(1024, 768);
+    const figures = await page.evaluate(() => [...document.querySelectorAll('#listeners .tile')].map(tile => tile.querySelector('use')?.getAttribute('href')));
+    if (figures[0] !== '#l-portrait-0') throw new Error(`a listener without a picture shows ${figures[0]}, expected the neutral figure #l-portrait-0`);
+    if (figures[1] !== '#l-girl') throw new Error(`a listener with picture "girl" shows ${figures[1]}, expected the girl figure #l-girl`);
+    console.log('PASS listener pictures: a listener without a picture keeps the neutral figure, a listener with picture "girl" shows the girl figure');
+    const shortLabel = await page.evaluate(() => document.querySelector('input[name="length"][value="Short"]').closest('label').querySelector('.minutes').textContent);
+    if (shortLabel !== '3 to 4 min') throw new Error(`the Short label reads "${shortLabel}", expected "3 to 4 min"`);
+    console.log('PASS length label: the Short tile reads "3 to 4 min"');
+    await page.close();
+  }
+
   // MAY-706 item 1: a classic opens on one tap and plays its pre-rendered MP3.
   {
     const page = await run(1180, 820);
@@ -204,7 +217,7 @@ try {
     if (fit.scroll > fit.inner) throw new Error(`item 2 at ${width}x${height}: scrollWidth ${fit.scroll} > innerWidth ${fit.inner}`);
     if (fit.cut) throw new Error(`item 2 at ${width}x${height}: ${fit.cut} element(s) cut off at the right edge`);
     const safeTop = await page.evaluate(() =>
-      /\.top\s*\{[^}]*safe-area-inset-top/.test(document.querySelector('style').textContent));;
+      [...document.querySelectorAll('style')].some(style => /\.top\s*\{[^}]*safe-area-inset-top/.test(style.textContent)));
     if (!safeTop) throw new Error(`item 3 at ${width}x${height}: the header has no safe-area top padding`);
     console.log(`PASS item 2+3 ${width}x${height}: scrollWidth ${fit.scroll} <= innerWidth ${fit.inner}, nothing cut at the edge, header safe-area padded`);
     await page.close();

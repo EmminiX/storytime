@@ -59,7 +59,7 @@ cp .env.example .env
 
 Edit `.env` to add your own `ANTHROPIC_API_KEY` and `MISTRAL_API_KEY`. Alternatively, export them in your shell. Exported variables take precedence over `.env`. The parser accepts one `NAME=value` per line, optional `export`, quoted values, and comments. It does not expand shell commands or variable references. Only the two provider key names are loaded, from this project folder.
 
-Edit `config.json` with the listeners' first names and ages. The example uses Robin, 8, and Sam, 5. Names must be unique and cannot be `Both` or `Everyone`. Ages are whole numbers from 1 to 18. A group choice uses the youngest listener's age. `local_flavour` is optional setting text and defaults to empty.
+Edit `config.json` with the listeners' first names and ages. The example uses Robin, 8, and Sam, 5. Names must be unique and cannot be `Both` or `Everyone`. Ages are whole numbers from 1 to 18. A group choice uses the youngest listener's age. A listener can also set `"picture": "girl"` or `"picture": "boy"` to show that figure on their tile; without it the neutral figures are used, given out by list position. `local_flavour` is optional setting text and defaults to empty.
 
 `mistral_voices` maps the two reader choices, `bf_emma` and `bm_george`, to Mistral voice IDs. The tiles label them Emma and George. Those labels identify reader slots, rather than Mistral's preset names. You can replace the IDs. `host` and `port` control the listener address. Restart the server after changing configuration. Without `config.json`, the app uses `config.example.json`.
 
