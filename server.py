@@ -57,6 +57,7 @@ class Config(BaseModel):
     port: int = Field(default=8787, strict=True, ge=1, le=65535)
     mistral_voices: dict[Literal['bf_emma', 'bm_george'], str]
     fallback_tts_command: str = Field(default='', max_length=2048)
+    daily_story_cap: int = Field(default=10, strict=True, ge=1)
 
     @model_validator(mode='after')
     def valid_settings(self):
@@ -193,8 +194,12 @@ def generate_text(choices, number, previous):
     return parse_story('\n'.join(block['text'] for block in result['content'] if block['type'] == 'text'))
 
 
+def is_classic(story_id):
+    return story_id.startswith('classic-')
+
+
 def read_story(story_id):
-    if not (re.fullmatch(r'\d{8}-\d{6}-[a-z0-9-]+', story_id) or re.fullmatch(r'classic-[a-z0-9-]+', story_id)):
+    if not (re.fullmatch(r'\d{8}-\d{6}-[a-z0-9-]+', story_id) or is_classic(story_id)):
         raise HTTPException(404, 'Story not found')
     try:
         with store_lock:
@@ -476,6 +481,8 @@ def home():
 
 @app.post('/api/story')
 def make_story(choices: Choices):
+    if count_stories_today() >= CONFIG.daily_story_cap:
+        raise HTTPException(429, 'You have made all your stories for today. New stories come back tomorrow. You can still listen to your old stories and Classics.')
     try:
         story = create_story(choices)
     except Exception as error:
@@ -496,13 +503,36 @@ def get_story(story_id: str):
     return snapshot(story)
 
 
+def count_stories_today():
+    today = datetime.now().astimezone().strftime('%Y%m%d')
+    count = 0
+    for path in STORIES.glob('*/story.json'):
+        try:
+            story = read_story(path.parent.name)
+            created = datetime.fromisoformat(story['created']).astimezone()
+            if created.strftime('%Y%m%d') == today and story.get('number', 1) == 1:
+                count += 1
+        except (HTTPException, ValueError):
+            continue
+    return count
+
+
+@app.get('/api/daily_cap')
+def daily_cap_status():
+    used = count_stories_today()
+    return {'used': used, 'cap': CONFIG.daily_story_cap, 'remaining': max(0, CONFIG.daily_story_cap - used)}
+
+
 @app.get('/api/stories')
-def saved_stories():
+def saved_stories(archived: bool = False):
     stories = []
     for path in sorted(STORIES.glob('*/story.json'), reverse=True):
         try:
             story = read_story(path.parent.name)
             if story.get('classic'):
+                continue
+            is_archived = story.get('archived', False)
+            if archived != is_archived:
                 continue
             if snapshot(story)['ready'] or story.get('audio_error'):
                 saved = snapshot(story)
@@ -535,6 +565,34 @@ def audio_file(story_id: str, filename: str):
 @app.get('/manifest.webmanifest')
 def manifest():
     return FileResponse(BASE / 'static/manifest.webmanifest', media_type='application/manifest+json')
+
+
+@app.post('/api/story/{story_id}/archive')
+def archive_story(story_id: str):
+    if is_classic(story_id):
+        raise HTTPException(400, 'Classics stay on the Classics shelf.')
+    story = read_story(story_id)
+    archived = not story.get('archived', False)
+    update_story(story_id, archived=archived)
+    return {'id': story_id, 'archived': archived}
+
+
+@app.delete('/api/story/{story_id}')
+def delete_story(story_id: str):
+    if is_classic(story_id):
+        raise HTTPException(400, 'Classics cannot be deleted.')
+    story = read_story(story_id)
+    if not story.get('archived', False):
+        raise HTTPException(400, 'Archive the story before you delete it.')
+    folder = STORIES / story_id
+    for audio_file in folder.glob('*.wav'):
+        audio_file.unlink(missing_ok=True)
+    (folder / 'story.json').unlink(missing_ok=True)
+    try:
+        folder.rmdir()
+    except OSError:
+        pass
+    return {'id': story_id, 'deleted': True}
 
 
 @app.get('/cover.png')
