@@ -14,6 +14,7 @@ import path from 'node:path';
 
 const ROOT = process.cwd();
 const STORY_ID = '20261014-000001-browser-seed';
+const CHAIN_ID = '20261013-235959-browser-first-night';
 const PARAGRAPH_STARTS = [0, 4, 8];
 
 let chromium;
@@ -58,6 +59,7 @@ function wav(seconds) {
 }
 
 const folder = path.join(ROOT, 'stories', STORY_ID);
+const chainFolder = path.join(ROOT, 'stories', CHAIN_ID);
 function seed() {
   fs.mkdirSync(folder, { recursive: true });
   const story = {
@@ -81,10 +83,17 @@ function seed() {
   fs.writeFileSync(path.join(folder, 'story.json'), JSON.stringify(story, null, 2));
   fs.writeFileSync(path.join(folder, 'story.wav'), wav(12));
   fs.writeFileSync(path.join(folder, 'p01.wav'), wav(4));
+  fs.mkdirSync(chainFolder, { recursive: true });
+  const first = { ...story, id: CHAIN_ID, created: '2026-10-13T23:59:59+00:00', title: 'The First Night', number: 1, next_story_id: STORY_ID };
+  delete first.paragraph_starts;
+  fs.writeFileSync(path.join(chainFolder, 'story.json'), JSON.stringify(first, null, 2));
+  fs.writeFileSync(path.join(chainFolder, 'story.wav'), wav(12));
+  fs.writeFileSync(path.join(chainFolder, 'p01.wav'), wav(4));
 }
 
 function cleanup() {
   fs.rmSync(folder, { recursive: true, force: true });
+  fs.rmSync(chainFolder, { recursive: true, force: true });
 }
 
 const freePort = () => new Promise(resolve => {
@@ -159,6 +168,95 @@ try {
   const afterPrev = await page.evaluate(() => document.querySelector('#audio').currentTime);
   console.log(`PASS prev-paragraph: currentTime ${afterPrev.toFixed(2)}s is paragraph_starts[0]=${PARAGRAPH_STARTS[0]}s within 1s, audio source unchanged`);
   await page.close();
+
+  // MAY-706 item 1: a classic opens on one tap and plays its pre-rendered MP3.
+  {
+    const page = await run(1180, 820);
+    await page.click('#to-classics');
+    await page.waitForSelector('#classics-books .book', { timeout: 10000 });
+    await page.click('#classics-books .book');
+    await page.waitForFunction(() => document.querySelector('#audio').currentSrc.endsWith('.mp3'), null, { timeout: 15000 });
+    let playing = false;
+    try { await page.waitForFunction(() => !document.querySelector('#audio').paused, null, { timeout: 5000 }); playing = true; } catch { /* reported below */ }
+    if (!playing) throw new Error('item 1: the classic did not start playing its pre-rendered audio');
+    console.log('PASS item 1: a classic opens on one tap and plays its pre-rendered MP3');
+    await page.close();
+  }
+
+  // MAY-706 items 2 and 3: everything fits both iPad sizes, and the bars are safe-area padded.
+  for (const [width, height] of [[1180, 820], [820, 1180]]) {
+    const page = await run(width, height);
+    const fit = await page.evaluate(() => {
+      const cut = [...document.querySelectorAll('body *')].filter(el => {
+        if (getComputedStyle(el).position === 'fixed') return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.right > window.innerWidth + 1;
+      });
+      return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, cut: cut.length };
+    });
+    if (fit.scroll > fit.inner) throw new Error(`item 2 at ${width}x${height}: scrollWidth ${fit.scroll} > innerWidth ${fit.inner}`);
+    if (fit.cut) throw new Error(`item 2 at ${width}x${height}: ${fit.cut} element(s) cut off at the right edge`);
+    const safeTop = await page.evaluate(() =>
+      /\.top\s*\{[^}]*safe-area-inset-top/.test(document.querySelector('style').textContent));;
+    if (!safeTop) throw new Error(`item 3 at ${width}x${height}: the header has no safe-area top padding`);
+    console.log(`PASS item 2+3 ${width}x${height}: scrollWidth ${fit.scroll} <= innerWidth ${fit.inner}, nothing cut at the edge, header safe-area padded`);
+    await page.close();
+  }
+
+  // MAY-706 items 4, 5 and 6: one tap opens and plays, back returns to the collection, story back/next work.
+  {
+    const page = await run(1180, 820);
+    await page.click('#to-shelf');
+    await page.waitForSelector('.book', { timeout: 10000 });
+    await page.waitForTimeout(1000); // let the card rise animation settle
+    // Tap near the top edge of the card, where a dead strip used to swallow the first tap.
+    const row = await page.locator('.saved-row').first().boundingBox();
+    await page.mouse.click(row.x + 60, row.y + 8);
+    await page.waitForFunction(() => !document.querySelector('#play').hidden, null, { timeout: 5000 });
+    let playing = false;
+    try { await page.waitForFunction(() => !document.querySelector('#audio').paused, null, { timeout: 5000 }); playing = true; } catch { /* reported below */ }
+    if (!playing) throw new Error('item 5: one tap on a saved story must open and play it');
+    const backLabel = (await page.textContent('#back')).trim();
+    if (backLabel !== 'Stories') throw new Error(`item 4: back label is "${backLabel}", expected "Stories"`);
+    await page.click('#back');
+    await page.waitForFunction(() => !document.querySelector('#shelf').hidden && document.querySelector('#play').hidden, null, { timeout: 5000 });
+    console.log('PASS item 4: back from a story returns to the Stories collection');
+    console.log('PASS item 5: one tap opens and plays a saved story');
+
+    await page.click('.book');
+    await page.waitForFunction(() => !document.querySelector('#play').hidden, null, { timeout: 5000 });
+    const title = (await page.textContent('#title')).trim();
+    await page.click('#prev-story');
+    await page.waitForFunction(t => document.querySelector('#title').textContent.trim() !== t, title, { timeout: 5000 });
+    if ((await page.textContent('#title')).trim() === title) throw new Error('item 6: story back did not open the previous story');
+    await page.click('#next-story');
+    await page.waitForFunction(t => document.querySelector('#title').textContent.trim() === t, title, { timeout: 5000 });
+    await page.click('#next-story');
+    await page.waitForFunction(() => /last story tonight/.test(document.querySelector('#status').textContent), null, { timeout: 3000 });
+    console.log('PASS item 6: story back opens the previous story, story next returns and reports the last story');
+    await page.close();
+  }
+
+  // MAY-706 item 8: a child can type their own place in the Where step.
+  {
+    const page = await run(1180, 820);
+    for (let guard = 0; guard < 12; guard++) {
+      const step = await page.evaluate(() => document.querySelector('.step.active').dataset.step);
+      if (step === 'ready') break;
+      if (step === 'where') {
+        await page.click('label:has(input[value="__own"])');
+        await page.fill('#own-place', "Grandma's garden");
+      }
+      await page.click('.step.active .next', { timeout: 5000 });
+      await page.waitForFunction(previous => document.querySelector('.step.active').dataset.step !== previous, step, { timeout: 5000 });
+    }
+    const summary = await page.textContent('#summary');
+    if (!summary.includes("Grandma's garden")) throw new Error(`item 8: own place missing from the summary: "${summary.trim()}"`);
+    const chip = await page.evaluate(() => document.querySelectorAll('#chips .chip')[1].querySelector('.sr').textContent);
+    if (!chip.includes("Grandma's garden")) throw new Error(`item 8: own place missing from the chips: "${chip}"`);
+    console.log("PASS item 8: typing our own place reaches the summary and the chips");
+    await page.close();
+  }
 
   // The page runs clean at phone width: both place maps feed the UI.
   page = await run(390, 844);

@@ -11,7 +11,7 @@ Storytime is a small bedtime story app for a household. Choose a listener, world
 
 A paper-cut night scene is made with inline SVG and CSS, with no image files for the scene. A Motion switch keeps the scene still when you prefer, and the app follows reduced-motion settings.
 
-The Classics shelf holds nine old tales (Puss in Boots, Pinocchio, Hansel and Gretel, and six more), retold gently in the public domain, separate from the made stories and played by the same player. Classics use the local voice only and never call the paid Mistral voice, so their audio is made only when a local fallback voice is configured.
+The Classics shelf holds nine old tales (Puss in Boots, Pinocchio, Hansel and Gretel, and six more), retold gently in the public domain, separate from the made stories and played by the same player. The classics ship with pre-rendered audio in `classics_audio/` (one MP3 per tale, read by the Kokoro voice `bf_emma` and rendered once on the Mac with `tools/render_classics.py`), so they play without any runtime or paid voice. A classic whose MP3 files are missing falls back to the local voice only and never calls the paid Mistral voice.
 
 ## Security: home use only
 
@@ -77,9 +77,11 @@ A browser check drives the paragraph skip in a real browser: `node browser_test.
 
 Set `"host": "0.0.0.0"` in `config.json` and restart the server. This listens on all interfaces. Keep the iPad and server on your private home network. Allow the configured port through the computer's firewall only for your trusted network.
 
-In iPad Safari, open `http://YOUR-COMPUTER-LAN-IP:8787`, using the server computer's local address and your configured port. Tap Make my story, then Play. You can also add the page to the Home Screen. Next/previous story uses Media Session where Safari exposes those controls. Previous returns to a story visited in the current session, or restarts the current story.
+In iPad Safari, open `http://YOUR-COMPUTER-LAN-IP:8787`, using the server computer's local address and your configured port. Tap Make my story, then Play. You can also add the page to the Home Screen. Next/previous story uses Media Session where Safari exposes those controls. Story back opens the previous story in the night's chain; from the first story it restarts the current one. The back control in a story returns to the collection (Stories, Classics or Archive) it was opened from.
 
 ## Optional local voice fallback
+
+The classics do not need this: their audio is pre-rendered (see `classics_audio/` and `tools/render_classics.py`, which needs `kokoro-onnx` and `ffmpeg` on the Mac only).
 
 The author's fallback is Kokoro through a small local script, using the `kokoro-onnx` voices `bf_emma` and `bm_george`. That script and its model files are not included. Supply your own local script and install its dependencies separately if you want this fallback.
 

@@ -356,6 +356,77 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(results[0]['choices'], {},
                             'Empty choices dict for stories saved before voice was added')
 
+    def test_own_place_field(self):
+        """A child may type their own place; it must reach the prompt and be validated."""
+        import server
+        from pydantic import ValidationError
+        choices = server.Choices(where="Grandma's garden")
+        self.assertEqual(choices.where, "Grandma's garden")
+        self.assertIn("Grandma's garden", server.story_prompt(choices, 1, []))
+        self.assertEqual(server.Choices(where='  Tokyo  ').where, 'Tokyo', 'Listed places are trimmed')
+        for invalid in ('', '   ', 'Two\nlines', 'x' * 61):
+            with self.subTest(place=invalid):
+                with self.assertRaises(ValidationError):
+                    server.Choices(where=invalid)
+
+    def test_prev_story_link(self):
+        """Story 2 must expose the id of story 1 so Story back can return to it."""
+        import server
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            one, two = '20261014-000001-first-night', '20261014-000002-second-night'
+            for story_id, number, next_id in ((one, 1, two), (two, 2, None)):
+                folder = Path(directory) / story_id; folder.mkdir()
+                server.save_story({'id': story_id, 'choices': server.Choices().model_dump(), 'title': story_id,
+                                   'paragraphs': ['Good night.'] * 4, 'number': number, 'created': '2026-10-14T01:01:01+00:00',
+                                   'next_story_id': next_id})
+                (folder / 'p01.wav').write_bytes(wav_bytes())
+            self.assertIsNone(server.snapshot(server.read_story(one))['prev_story_id'])
+            self.assertEqual(server.snapshot(server.read_story(two))['prev_story_id'], one)
+            listed = server.saved_stories()
+            self.assertEqual([item['prev_story_id'] for item in listed], [one, None],
+                             'saved_stories exposes prev_story_id')
+
+    def test_classics_serve_prerendered_audio(self):
+        """Classics ship pre-rendered MP3 audio; the server never calls a runtime voice for them."""
+        import server
+        from fastapi.testclient import TestClient
+        tale = server.classics.CLASSICS[0]
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            audio = Path(directory) / 'classics_audio'
+            (audio / tale['id']).mkdir(parents=True)
+            (audio / tale['id'] / 'story.mp3').write_bytes(b'fake mp3')
+            (audio / 'manifest.json').write_text(json.dumps({tale['id']: {'starts': [0, 12.5], 'seconds': 300}}))
+            with patch.object(server, 'CLASSICS_AUDIO', audio):
+                server.materialise_classic(tale)
+                client = TestClient(server.app)
+                listed = client.get('/api/classics').json()
+                mine = next(item for item in listed if item['id'] == tale['id'])
+                self.assertEqual(mine['continuous'], f"/classics_audio/{tale['id']}/story.mp3")
+                self.assertEqual(mine['paragraph_starts'], [0, 12.5])
+                self.assertIsNone(mine['audio_error'])
+                served = client.get(f"/classics_audio/{tale['id']}/story.mp3")
+                self.assertEqual(served.status_code, 200)
+                self.assertEqual(served.headers['content-type'], 'audio/mpeg')
+                self.assertEqual(client.get(f"/classics_audio/{tale['id']}/p01.wav").status_code, 404,
+                                 'Only the pre-rendered MP3 is served')
+                self.assertEqual(client.get('/classics_audio/classic-../outside/story.mp3').status_code, 404)
+                with patch.object(server, 'start_audio') as retry, patch.object(server, 'start_chain') as chain:
+                    opened = client.get(f"/api/story/{tale['id']}").json()
+                    retry.assert_not_called()
+                    chain.assert_not_called()
+                self.assertEqual(opened['continuous'], f"/classics_audio/{tale['id']}/story.mp3")
+
+    def test_classic_without_prerendered_audio_still_reports(self):
+        """A classic whose MP3 is missing keeps the old honest error, not a silent failure."""
+        import server
+        tale = server.classics.CLASSICS[0]
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'CLASSICS_AUDIO', Path(directory) / 'classics_audio'):
+            server.materialise_classic(tale)
+            with patch.object(server, 'start_audio') as retry:
+                server.get_story(tale['id'])
+                retry.assert_called_once_with(tale['id'])
+
     def test_classics_exist_and_word_range(self):
         import classics
         self.assertEqual(len(classics.CLASSICS), 9, 'Nine classic tales must ship')
