@@ -806,9 +806,9 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <section class="step" data-step="length">
       <div class="ask"><button type="button" class="round prev" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg></button><h2>How long?</h2><button type="button" class="round next" aria-label="Next"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next"/></svg></button></div>
       <div class="tiles c3">
-        <label class="tile" style="--i:0"><input type="radio" name="length" value="Short" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-short"/></svg>Short<span class="minutes">4 to 6 min</span><span class="seal"></span></label>
-        <label class="tile" style="--i:1"><input type="radio" name="length" value="Medium"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-medium"/></svg>Medium<span class="minutes">8 to 11 min</span><span class="seal"></span></label>
-        <label class="tile" style="--i:2"><input type="radio" name="length" value="Long"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-long"/></svg>Long<span class="minutes">14 to 18 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:0"><input type="radio" name="length" value="Short" checked><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-short"/></svg>Short<span class="minutes">3 to 4 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:1"><input type="radio" name="length" value="Medium"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-medium"/></svg>Medium<span class="minutes">5 to 6 min</span><span class="seal"></span></label>
+        <label class="tile" style="--i:2"><input type="radio" name="length" value="Long"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><use href="#b-long"/></svg>Long<span class="minutes">6 to 9 min</span><span class="seal"></span></label>
       </div>
     </section>
 
@@ -1021,7 +1021,7 @@ function renderSummary() {
   const place = c.where ? (PLACE_PHRASES[c.where] || c.where) : 'a magical place';
   add('A '); add(MOODS[c.mood] === 'sleepy' ? 'sleepy' : MOODS[c.mood], 1); add(' story for '); add(listenerHero(c.who), 1);
   add(': in '); add(place, 1); add(' at '); add(WORLDS[c.world].place, 1); add(' with a '); add(friendWord(c.friend), 1); add(', read by '); add(VOICES[c.voice], 1); add('. ');
-  add({short: '4 to 6 minutes.', medium: '8 to 11 minutes.', long: '14 to 18 minutes.'}[LENGTHS[c.length]]);
+  add({short: '3 to 4 minutes.', medium: '5 to 6 minutes.', long: '6 to 9 minutes.'}[LENGTHS[c.length]]);
 }
 const steps = [...form.querySelectorAll('.step')];
 function goTo(i) {
