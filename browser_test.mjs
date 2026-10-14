@@ -15,6 +15,7 @@ import path from 'node:path';
 const ROOT = process.cwd();
 const STORY_ID = '20261014-000001-browser-seed';
 const CHAIN_ID = '20261013-235959-browser-first-night';
+const QPROBE_ID = '20261012-120000-browser-qprobe';
 const PARAGRAPH_STARTS = [0, 4, 8];
 
 let chromium;
@@ -89,11 +90,17 @@ function seed() {
   fs.writeFileSync(path.join(chainFolder, 'story.json'), JSON.stringify(first, null, 2));
   fs.writeFileSync(path.join(chainFolder, 'story.wav'), wav(12));
   fs.writeFileSync(path.join(chainFolder, 'p01.wav'), wav(4));
+  const qFolder = path.join(ROOT, 'stories', QPROBE_ID);
+  fs.mkdirSync(qFolder, { recursive: true });
+  const qprobe = { ...story, id: QPROBE_ID, created: '2026-10-12T12:00:00+00:00', title: 'The Wobbly Comet', number: 1 };
+  fs.writeFileSync(path.join(qFolder, 'story.json'), JSON.stringify(qprobe, null, 2));
+  for (const name of ['story.wav', 'p01.wav', 'p02.wav', 'p03.wav', 'q01.wav', 'q02.wav', 'q03.wav']) fs.writeFileSync(path.join(qFolder, name), wav(4));
 }
 
 function cleanup() {
   fs.rmSync(folder, { recursive: true, force: true });
   fs.rmSync(chainFolder, { recursive: true, force: true });
+  fs.rmSync(path.join(ROOT, 'stories', QPROBE_ID), { recursive: true, force: true });
 }
 
 const freePort = () => new Promise(resolve => {
@@ -277,6 +284,63 @@ try {
   if (chipPic < 200) throw new Error(`place pictures broken: where chip SVG is ${chipPic} chars`);
   console.log('PASS 390px: place phrases in the summary, place pictures in the chips, no page errors');
   await page.close();
+
+  // MAY-725 a: the Stories page stays quiet while idle.
+  {
+    const context = await browser.newContext({ viewport: { width: 1180, height: 820 }, hasTouch: true });
+    const page = await context.newPage();
+    await page.goto(base, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForFunction(() => !document.querySelector('#make').disabled, null, { timeout: 10000 });
+    let storiesRequests = 0;
+    page.on('request', req => { if (new URL(req.url()).pathname === '/api/stories') storiesRequests++; });
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    await page.waitForTimeout(10000);
+    if (storiesRequests >= 3) throw new Error(`MAY-725 a: ${storiesRequests} /api/stories requests in 10 s idle, expected fewer than 3`);
+    console.log(`PASS MAY-725 a: ${storiesRequests} /api/stories requests in 10 s idle on the Stories page (fewer than 3)`);
+    await context.close();
+  }
+
+  // MAY-725 b: one tap archives on the iPad (portrait, touch), and Restore moves the story back.
+  {
+    const context = await browser.newContext({ viewport: { width: 820, height: 1180 }, hasTouch: true });
+    const page = await context.newPage();
+    await page.goto(base, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForFunction(() => !document.querySelector('#make').disabled, null, { timeout: 10000 });
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    await page.waitForTimeout(1000); // let the card rise animation settle before the touch lands
+    const title = (await page.locator('#books .saved-row .book strong').first().textContent()).trim();
+    const rows = await page.locator('#books .saved-row').count();
+    await page.locator('#books .saved-row .pill.small').first().tap();
+    await page.waitForFunction(n => document.querySelectorAll('#books .saved-row').length === n - 1, rows, { timeout: 5000 });
+    await page.click('#shelf-back');
+    await page.click('#to-archive');
+    await page.waitForFunction(t => [...document.querySelectorAll('#archive-books .saved-row .book strong')].some(el => el.textContent.trim() === t), title, { timeout: 5000 });
+    await page.locator('#archive-books .saved-row .pill.small').first().tap();
+    await page.waitForFunction(t => [...document.querySelectorAll('#archive-books .saved-row .book strong')].every(el => el.textContent.trim() !== t), title, { timeout: 5000 });
+    await page.click('#archive-back');
+    await page.click('#to-shelf');
+    await page.waitForFunction(t => [...document.querySelectorAll('#books .saved-row .book strong')].some(el => el.textContent.trim() === t), title, { timeout: 5000 });
+    console.log('PASS MAY-725 b: one tap archives on the iPad, the story leaves the shelf and Restore moves it back');
+    await context.close();
+  }
+
+  // MAY-725 c: an old story with a vanished audio part plays without any 404.
+  {
+    const page = await run(1180, 820);
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    const notFound = [];
+    page.on('response', res => { if (res.status() === 404) notFound.push(res.url()); });
+    fs.rmSync(path.join(ROOT, 'stories', QPROBE_ID, 'q01.wav'));
+    await page.locator('#books .book').nth(2).click();
+    await page.waitForFunction(() => document.querySelector('#audio').currentSrc.endsWith('.wav') && !document.querySelector('#audio').paused, null, { timeout: 10000 });
+    await page.waitForTimeout(2500);
+    if (notFound.length) throw new Error(`MAY-725 c: ${notFound.length} x 404 (${notFound.join(', ')})`);
+    console.log('PASS MAY-725 c: zero 404 responses when an old story plays with a missing audio part');
+    await page.close();
+  }
 
   if (pageErrors.length) throw new Error(`page errors:\n${pageErrors.join('\n')}`);
   console.log('PASS zero page errors at 1024 and 390 px');

@@ -247,7 +247,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .pill.danger{border-color:#d6604d;color:#d6604d}
 .pill.danger:hover{background:#3a1414}
 .book-actions{display:flex;gap:6px;align-items:center}
-.book-actions .pill{margin:0}
+.book-actions .pill{margin:0;min-width:44px;min-height:44px;touch-action:manipulation}
 
 /* ---------- responsive ---------- */
 @media (max-width:900px){
@@ -308,7 +308,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .skip-label{font-size:16px;line-height:1;color:var(--text);margin-top:2px}
 .book{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:16px;min-height:76px;padding:8px 14px 8px 10px;border-radius:18px;background:var(--panel);border:2px solid var(--line);text-align:left;transition:border-color .2s var(--ease),box-shadow .25s var(--ease),transform .2s var(--ease);animation:rise .5s var(--ease) both;animation-delay:calc(var(--i,0)*70ms);width:100%}
 .saved-row{position:relative}
-.saved-row .book-actions{position:absolute;top:-16px;right:12px;z-index:2;justify-content:flex-end}
+.saved-row .book-actions{position:absolute;top:4px;right:64px;z-index:2;justify-content:flex-end}
 .book:hover{border-color:var(--ring);box-shadow:0 18px 30px -24px rgba(10,15,30,.6);transform:translateY(-2px)}
 .book .cover{width:104px;height:68px;border-radius:12px;display:block}
 .book strong{display:block;font-weight:500;font-size:17px;line-height:1.3}
@@ -1154,6 +1154,7 @@ function show(id) { for (const s of ['choose', 'play', 'shelf', 'classics', 'arc
 const audio = $('audio'), RING = 351.86;
 let story = null, paragraph = 0, wantsPlay = false, waiting = false, finished = false, continuous = false;
 let session = 0, sleepTimer, pollBusy = false, nextBusy = false, switching = false;
+const badAudio = new Set();
 const history = [];
 function say(t) { $('status').textContent = t; }
 function playerLabel() {
@@ -1188,7 +1189,7 @@ function render() {
   $('reader').textContent = `${VOICES[story.choices?.voice] || 'Someone'} reads this one.`;
   highlight(); ring(0); mediaMetadata();
 }
-function source() { return continuous ? story.continuous : (story.playlist || story.audio)[paragraph]; }
+function source() { const url = continuous ? story.continuous : (story.playlist || story.audio)[paragraph]; return badAudio.has(url) ? undefined : url; }
 function stop() {
   session++; switching = false; wantsPlay = false; waiting = false; finished = false; paragraph = 0; audio.pause();
   if (story) { continuous = Boolean(story.continuous); if (source()) audio.src = source(); else audio.removeAttribute('src'); }
@@ -1269,9 +1270,13 @@ async function request(url, options) {
 }
 
 /* ---------- saved stories ---------- */
+let shelfKey = '', archiveKey = '';
 async function renderShelf() {
   try {
     const saved = await request('/api/stories');
+    const key = JSON.stringify(saved);
+    if (key === shelfKey) return;
+    shelfKey = key;
     $('shelf-status').textContent = '';
     if (!saved.length) { $('books').innerHTML = '<p class="empty">No stories yet. Make one tonight.</p>'; return; }
     $('books').replaceChildren(...saved.map((s, i) => {
@@ -1300,7 +1305,8 @@ async function renderShelf() {
           return;
         }
         // shortcut: start published audio on the tap, then fetch text for Safari playback permissions.
-        openStory({...s, paragraphs: [], audio: [`/stories/${s.id}/p01.wav`], playlist: s.playlist?.length ? s.playlist : [`/stories/${s.id}/p01.wav`]}, true);
+        const first = s.audio?.[0] || `/stories/${s.id}/p01.wav`;
+        openStory({...s, paragraphs: [], audio: [first], playlist: [first]}, true);
         poll();
       });
       row.append(b); return row;
@@ -1333,6 +1339,9 @@ async function renderClassics() {
 async function renderArchive() {
   try {
     const archived = await request('/api/stories?archived=true');
+    const key = JSON.stringify(archived);
+    if (key === archiveKey) return;
+    archiveKey = key;
     $('archive-status').textContent = '';
     if (!archived.length) { $('archive-books').innerHTML = '<p class="empty">Nothing here yet. Stories you archive from the shelf show up here.</p>'; return; }
     $('archive-books').replaceChildren(...archived.map((s, i) => {
@@ -1349,7 +1358,8 @@ async function renderArchive() {
           catch (error) { if (token === session) $('archive-status').textContent = error.message; }
           return;
         }
-        openStory({...s, paragraphs: [], audio: [`/stories/${s.id}/p01.wav`], playlist: s.playlist?.length ? s.playlist : [`/stories/${s.id}/p01.wav`]}, true);
+        const first = s.audio?.[0] || `/stories/${s.id}/p01.wav`;
+        openStory({...s, paragraphs: [], audio: [first], playlist: [first]}, true);
         poll();
       });
       const btns = document.createElement('span'); btns.className = 'book-actions';
@@ -1377,7 +1387,7 @@ async function renderArchive() {
         } catch (err) { $('archive-status').textContent = err.message; deleting = false; deleteBtn.disabled = false; }
       });
       btns.append(deleteBtn);
-      row.append(btns);
+      row.append(b); row.append(btns);
       return row;
     }));
   } catch { $('archive-status').textContent = 'The archive could not be loaded. Please try again.'; }
@@ -1427,8 +1437,13 @@ async function advanceStory() {
   if (!story.next_story_id) { say(story.continuation_error || 'Getting your next story ready…'); return; }
   await nextStory();
 }
+function pollPending() {
+  return Boolean(story) && !finished && !story.audio_error && Boolean($('play')) && !$('play').hidden &&
+    (!story.paragraphs?.length || (waiting && paragraph < story.total) ||
+     (!story.classic && (story.number || 1) < 3 && !story.next_story_id && !story.continuation_error));
+}
 async function poll() {
-  if (!story || finished || pollBusy || $('play').hidden) return;
+  if (!pollPending() || pollBusy) return;
   pollBusy = true;
   const token = session, id = story.id;
   try {
@@ -1436,9 +1451,10 @@ async function poll() {
     if (token !== session || story.id !== id) return;
     const needsText = !story.paragraphs.length;
     story = updated;
+    for (const url of [story.continuous, ...(story.playlist || []), ...(story.audio || [])]) if (url) badAudio.delete(url); // a fresh snapshot only lists files that exist
     if (story.audio_error) { wantsPlay = false; waiting = false; audio.pause(); playerLabel(); wake(); say(story.audio_error); }
     if (needsText) render(); else highlight();
-    if (!continuous && story.continuous && story.paragraph_starts?.length && !story.audio_error && paragraph < story.total) {
+    if (!continuous && story.continuous && !badAudio.has(story.continuous) && story.paragraph_starts?.length && !story.audio_error && paragraph < story.total) {
       const position = story.paragraph_starts[paragraph] + (waiting ? 0 : audio.currentTime);
       const handoverSession = ++session;
       switching = true; waiting = true; continuous = true; audio.src = story.continuous;
@@ -1518,6 +1534,7 @@ audio.addEventListener('timeupdate', () => {
 audio.addEventListener('play', () => { const wasPlaying = wantsPlay; wantsPlay = true; playerLabel(); if (!wasPlaying) wake(); });
 audio.addEventListener('pause', () => { if (!audio.ended && !waiting) { wantsPlay = false; playerLabel(); } });
 audio.addEventListener('error', () => {
+  if (audio.src) badAudio.add(new URL(audio.src).pathname);
   if (!story || !wantsPlay) return;
   switching = false; waiting = false; pause(); say('The audio could not play. Tap play to try again.');
 });
