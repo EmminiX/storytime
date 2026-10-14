@@ -103,28 +103,25 @@ By default the server allows at most `daily_story_cap` new stories a day (new ch
 
 ### Cost for one generated story
 
-Pricing as of 14 October 2026. The word counts are the prompt targets from the code; actual output varies.
+Pricing as of 14 October 2026, from [Anthropic](https://docs.anthropic.com/en/docs/about-claude/pricing) and [Mistral](https://docs.mistral.ai/inference/pricing/). The word counts are the prompt targets from the code; actual output varies. The home version uses the free local Kokoro voice for reading aloud, so the hosted voice cost below applies only to the planned paid tiers.
 
 | Item | Provider | Short (600 words) | Medium (1200 words) | Long (2000 words) |
 |---|---:|---:|---:|---:|
-| Text tokens (input) | Claude Haiku 5.5 [$0.10/MTok](https://docs.anthropic.com/en/docs/about-claude/pricing) | < $0.01 | < $0.01 | < $0.01 |
-| Text tokens (output) | Claude Haiku 5.5 [$0.50/MTok](https://docs.anthropic.com/en/docs/about-claude/pricing) | ~ $0.0005 | ~ $0.0010 | ~ $0.0017 |
-| Voice characters | Voxtral TTS [standard tier $0/M chars](https://docs.mistral.ai/inference/pricing/) | $0.00 | $0.00 | $0.00 |
-| Voice characters | Voxtral TTS [priority tier $16/M chars](https://docs.mistral.ai/inference/pricing/) | ~ $0.05 | ~ $0.10 | ~ $0.16 |
-| **One story total (standard)** | | **< $0.01** | **< $0.01** | **< $0.01** |
-| **One story total (priority voice)** | | **~ $0.05** | **~ $0.10** | **~ $0.16** |
+| Text tokens (input) | Claude Haiku 5.5 $0.10/MTok | < $0.01 | < $0.01 | < $0.01 |
+| Text tokens (output) | Claude Haiku 5.5 $0.50/MTok | ~ $0.0005 | ~ $0.0010 | ~ $0.0017 |
+| Voice characters | Voxtral TTS $16/M chars (~5 chars/word) | ~ $0.05 | ~ $0.10 | ~ $0.16 |
+| **One story total** | | **~ $0.05** | **~ $0.10** | **~ $0.16** |
 
 A new story starts a chain of up to three stories. Ten chains a day for 30 days, at the Short length:
 
 | Scenario | Monthly cost |
 |---|---:|
-| Text only (30 stories × 30 days) | ~ $0.49 |
-| Voice, standard tier ($0/M chars) | $0.00 |
-| Voice, priority tier ($16/M chars) | ~ $43 |
-| **Total, standard tier** | **~ $0.49/month** |
-| **Total, priority voice** | **~ $44/month** |
+| Text (30 stories × 30 days) | ~ $0.49 |
+| Voice, hosted ($16/M chars) | ~ $43 |
+| **Total, hosted voice** | **~ $44/month** |
+| **Total, local Kokoro voice** | **~ $0.49/month** |
 
-At the Long length (30 stories × 30 days, worst case): text ~ $1.56/month plus voice (standard $0, priority ~ $144).
+At the Long length (30 stories × 30 days, worst case): text ~ $1.56/month plus hosted voice ~ $144.
 
 AI-generated stories can contain mistakes or unsuitable content despite the gentle-story prompt. A parent should review what is appropriate for their child.
 
