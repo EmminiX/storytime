@@ -7,5 +7,6 @@
     "bf_emma": "5de47977-6e47-4266-a938-3bc1d76b4676",
     "bm_george": "390c8a2b-60a6-4882-8437-c49a8bd33b63"
   },
-  "fallback_tts_command": ""
+  "fallback_tts_command": "",
+  "daily_story_cap": 10
 }

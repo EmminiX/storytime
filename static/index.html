@@ -237,6 +237,12 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .books{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 
 .empty{color:var(--muted)}
+.pill.small{min-height:36px;padding:0 12px;font-size:15px;gap:6px;border-radius:16px}
+.pill.small svg{width:18px;height:18px}
+.pill.danger{border-color:#d6604d;color:#d6604d}
+.pill.danger:hover{background:#3a1414}
+.book-actions{display:flex;gap:6px;align-items:center}
+.book-actions .pill{margin:0}
 
 /* ---------- responsive ---------- */
 @media (max-width:700px){
@@ -626,6 +632,8 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   <g id="i-star"><path d="M12 2.5 L14.7 8.4 L21 8.9 L16.4 13.5 L17.8 19.7 L12 16.4 L6.2 19.7 L7.6 13.5 L3 8.9 L9.3 8.4Z" fill="currentColor"/></g>
   <g id="i-lantern"><path d="M9 3 h6 M8 5 h8 l-1 12 h-6z M8 19 h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><path d="M12 9 c2 2 2 4 0 5 c-2 -1 -2 -3 0 -5z" fill="currentColor"/></g>
   <g id="i-moon"><path d="M60 8 C34 12 18 34 22 60 C26 84 48 100 72 96 C50 90 36 72 36 52 C36 34 46 18 60 8Z" fill="#c9cfd9"/></g>
+  <g id="i-archive"><path d="M2 5 h20 L20 20 H4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12 v8 h6 v-8 M5 12 h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+  <g id="i-trash"><path d="M5 6 h14 M9 6 V4 a1 1 0 0 1 1 -1 h4 a1 1 0 0 1 1 1 v2 M7 6 v14 a1 1 0 0 0 1 1 h8 a1 1 0 0 0 1 -1 V6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
   <g id="p-city"><rect x="0" y="0" width="120" height="120" fill="#5a7a9a" rx="20"/><rect x="10" y="80" width="20" height="40" fill="#3a4e80"/><rect x="35" y="70" width="16" height="50" fill="#3a4e80"/><rect x="55" y="65" width="12" height="55" fill="#3a4e80"/><rect x="72" y="75" width="14" height="45" fill="#3a4e80"/><rect x="90" y="80" width="18" height="40" fill="#3a4e80"/></g>
   <g id="p-castle"><rect x="0" y="0" width="120" height="120" fill="#3f6fb5" rx="20"/><rect x="20" y="60" width="80" height="60" fill="#2b3d66"/><rect x="30" y="40" width="12" height="20" fill="#2b3d66"/><rect x="50" y="40" width="12" height="20" fill="#2b3d66"/><rect x="70" y="40" width="12" height="20" fill="#2b3d66"/><rect x="35" y="25" width="50" height="15" fill="#1c2a4a"/><path d="M30 25 L60 10 L90 25" fill="#1c2a4a"/></g>
   <g id="p-tower"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><rect x="45" y="20" width="30" height="80" fill="#3a4e80"/><rect x="40" y="15" width="40" height="10" fill="#2b3d66"/><rect x="35" y="10" width="50" height="5" fill="#1c2a4a"/><circle cx="50" cy="50" r="3" fill="#2a2320"/><circle cx="60" cy="50" r="3" fill="#2a2320"/><circle cx="70" cy="50" r="3" fill="#2a2320"/></g>
@@ -643,6 +651,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   <div class="tools">
     <button class="pill" id="to-classics" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg><span>Classics</span></button>
     <button class="pill" id="to-shelf" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-books"/></svg><span>Stories</span></button>
+    <button class="pill" id="to-archive" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-archive"/></svg><span>Archive</span></button>
     <button class="pill switch" id="motion" type="button" role="switch" aria-checked="true"><span class="track" aria-hidden="true"></span><span class="label">Motion <b id="motion-state">on</b></span><span class="sr">Motion</span></button>
   </div>
 </header>
@@ -836,6 +845,14 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   <h1 class="h" id="classics-h">Old tales</h1>
   <p class="status" id="classics-status" role="status" aria-live="polite"></p>
   <div class="books" id="classics-books" role="list"></div>
+</section>
+
+<!-- ======== screen 5: archive ======== -->
+<section id="archive" class="screen" aria-labelledby="archive-h" hidden>
+  <div class="bar"><button class="pill back" id="archive-back" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg>Choose</button></div>
+  <h1 class="h" id="archive-h">Archive</h1>
+  <p class="status" id="archive-status" role="status" aria-live="polite"></p>
+  <div class="books" id="archive-books" role="list"></div>
 </section>
 </main>
 
@@ -1105,7 +1122,7 @@ function resetMaking() {
 form.addEventListener('submit', e => { e.preventDefault(); if (!$('make').disabled) startMaking(); });
 
 /* ---------- screens ---------- */
-function show(id) { for (const s of ['choose', 'play', 'shelf', 'classics']) $(s).hidden = s !== id; window.scrollTo(0, 0); }
+function show(id) { for (const s of ['choose', 'play', 'shelf', 'classics', 'archive']) $(s).hidden = s !== id; window.scrollTo(0, 0); }
 
 /* ---------- the real audio player ---------- */
 const audio = $('audio'), RING = 351.86;
@@ -1232,6 +1249,17 @@ async function renderShelf() {
       b.innerHTML = cover(s.choices) + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
       b.querySelector('strong').textContent = s.title;
       b.querySelector('.when').textContent = `${VOICES[s.choices?.voice] || 'Someone'} · ${new Date(s.created).toLocaleDateString('en-IE', {day: 'numeric', month: 'short'})}`;
+      const btns = document.createElement('span'); btns.className = 'book-actions';
+      const archiveBtn = document.createElement('button'); archiveBtn.type = 'button'; archiveBtn.className = 'pill small'; archiveBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-archive"/></svg>';
+      archiveBtn.title = 'Move to Archive';
+      archiveBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        try {
+          await request(`/api/story/${s.id}/archive`, {method: 'POST'});
+          renderShelf(); renderArchive();
+        } catch (err) { $('shelf-status').textContent = err.message; }
+      });
+      btns.append(archiveBtn); row.append(btns);
       b.addEventListener('click', async () => {
         history.length = 0;
         if (!s.ready) {
@@ -1270,6 +1298,68 @@ async function renderClassics() {
       row.append(b); return row;
     }));
   } catch { $('classics-status').textContent = 'The old tales could not be loaded. Please try again.'; }
+}
+async function renderArchive() {
+  try {
+    const archived = await request('/api/stories?archived=true');
+    $('archive-status').textContent = '';
+    if (!archived.length) { $('archive-books').innerHTML = '<p class="empty">Nothing here yet. Stories you archive from the shelf show up here.</p>'; return; }
+    $('archive-books').replaceChildren(...archived.map((s, i) => {
+      const row = document.createElement('div'); row.className = 'saved-row'; row.setAttribute('role', 'listitem');
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'book'; b.style.setProperty('--i', i);
+      b.innerHTML = cover(s.choices) + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
+      b.querySelector('strong').textContent = s.title;
+      b.querySelector('.when').textContent = `${VOICES[s.choices?.voice] || 'Someone'} · ${new Date(s.created).toLocaleDateString('en-IE', {day: 'numeric', month: 'short'})}`;
+      b.addEventListener('click', async () => {
+        history.length = 0;
+        if (!s.ready) {
+          const token = ++session;
+          try { const value = await request(`/api/story/${s.id}`); if (token === session) openStory(value); }
+          catch (error) { if (token === session) $('archive-status').textContent = error.message; }
+          return;
+        }
+        openStory({...s, paragraphs: [], audio: [`/stories/${s.id}/p01.wav`], playlist: s.playlist?.length ? s.playlist : [`/stories/${s.id}/p01.wav`]}, true);
+        poll();
+      });
+      const btns = document.createElement('span'); btns.className = 'book-actions';
+      const restoreBtn = document.createElement('button'); restoreBtn.type = 'button'; restoreBtn.className = 'pill small'; restoreBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-archive"/></svg>';
+      restoreBtn.title = 'Move back to shelf';
+      restoreBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        try {
+          await request(`/api/story/${s.id}/archive`, {method: 'POST'});
+          renderShelf(); renderArchive();
+        } catch (err) { $('archive-status').textContent = err.message; }
+      });
+      btns.append(restoreBtn);
+      const deleteBtn = document.createElement('button'); deleteBtn.type = 'button'; deleteBtn.className = 'pill small danger'; deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trash"/></svg>';
+      deleteBtn.title = 'Delete this story';
+      let deleting = false;
+      deleteBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        if (deleting) return;
+        if (!confirm(`Delete \u201c${s.title}\u201d? The story and its audio will be gone.`)) return;
+        deleting = true; deleteBtn.disabled = true;
+        try {
+          await request(`/api/story/${s.id}`, {method: 'DELETE'});
+          renderArchive();
+        } catch (err) { $('archive-status').textContent = err.message; deleting = false; deleteBtn.disabled = false; }
+      });
+      btns.append(deleteBtn);
+      row.append(btns);
+      return row;
+    }));
+  } catch { $('archive-status').textContent = 'The archive could not be loaded. Please try again.'; }
+}
+async function checkDailyCap() {
+  try {
+    const cap = await request('/api/daily_cap');
+    const btn = $('make');
+    if (cap.remaining <= 0) {
+      btn.disabled = true;
+      $('make-status').textContent = 'You have made all your stories for today. New stories come back tomorrow. You can still listen to your old stories and Classics.';
+    }
+  } catch { /* cap check is advisory */ }
 }
 async function nextStory() {
   if (nextBusy) return;
@@ -1336,7 +1426,7 @@ $('stop').addEventListener('click', stop);
 $('back').addEventListener('click', () => {
   clearTimeout(advance); session++; stop(); story = null; history.length = 0;
   if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
-  scene.classList.remove('night', 'player'); show('choose'); updateScene(); goTo(0); sceneTo($('slot-choose')); $('back').blur(); renderShelf();
+  scene.classList.remove('night', 'player'); show('choose'); updateScene(); goTo(0); sceneTo($('slot-choose')); $('back').blur(); renderShelf(); checkDailyCap();
 });
 $('to-shelf').addEventListener('click', () => {
   clearTimeout(advance); session++; stop(); story = null; history.length = 0;
@@ -1352,6 +1442,13 @@ $('to-classics').addEventListener('click', () => {
   show('classics'); renderClassics(); $('classics-h').setAttribute('tabindex', '-1'); $('classics-h').focus({preventScroll: true});
 });
 $('classics-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
+$('to-archive').addEventListener('click', () => {
+  clearTimeout(advance); session++; stop(); story = null; history.length = 0;
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+  clearTimeout(moveTimer); scene.classList.remove('night', 'player', 'fixed'); scene.style.cssText = ''; $('slot-choose').append(scene);
+  show('archive'); renderArchive(); $('archive-h').setAttribute('tabindex', '-1'); $('archive-h').focus({preventScroll: true});
+});
+$('archive-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
 $('prev-story').addEventListener('click', previousStory);
 $('next-story').addEventListener('click', nextStory);
 $('prev-paragraph').addEventListener('click', previousParagraph);
@@ -1383,7 +1480,7 @@ audio.addEventListener('error', () => {
 document.addEventListener('pointerdown', () => { if (html.classList.contains('sleeping') || wantsPlay) wake(); });
 document.addEventListener('keydown', () => { if (html.classList.contains('sleeping') || wantsPlay) wake(); });
 setInterval(poll, 2000);
-loadListeners(); renderShelf(); renderClassics();
+loadListeners(); renderShelf(); renderClassics(); checkDailyCap();
 })();
 </script>
 </body>

@@ -424,6 +424,95 @@ class StorytimeCheck(unittest.TestCase):
             mistral.assert_not_called()
             self.assertEqual(server.read_story('classic-puss-in-boots')['engines']['1'], 'Local fallback')
 
+    def test_archive_story_moves_it_out_of_shelf(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            folder = Path(directory) / '20261014-010101-gentle-swim'; folder.mkdir()
+            story = {'id': folder.name, 'choices': server.Choices(who='Robin').model_dump(),
+                     'title': 'A gentle swim', 'paragraphs': ['Good night.'] * 4, 'number': 1, 'created': '2026-10-14T01:01:01+01:00', 'next_story_id': None}
+            server.save_story(story)
+            (folder / 'p01.wav').write_bytes(wav_bytes())
+            self.assertEqual(len(client.get('/api/stories').json()), 1)
+            r = client.post(f'/api/story/{folder.name}/archive')
+            self.assertEqual(r.status_code, 200)
+            self.assertTrue(r.json()['archived'])
+            self.assertEqual(len(client.get('/api/stories').json()), 0, 'Archived hidden from shelf')
+            self.assertEqual(len(client.get('/api/stories?archived=true').json()), 1, 'Archived shown in archive')
+            r = client.post(f'/api/story/{folder.name}/archive')
+            self.assertFalse(r.json()['archived'])
+            self.assertEqual(len(client.get('/api/stories').json()), 1)
+
+    def test_classic_cannot_be_archived(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            server.materialise_classic(server.classics.CLASSICS[0])
+            r = client.post('/api/story/classic-puss-in-boots/archive')
+            self.assertEqual(r.status_code, 400)
+
+    def test_delete_only_from_archive(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            folder = Path(directory) / '20261014-010101-gentle-swim'; folder.mkdir()
+            story = {'id': folder.name, 'choices': server.Choices().model_dump(),
+                     'title': 'A gentle swim', 'paragraphs': ['Good night.'] * 4, 'number': 1, 'created': '2026-10-14T01:01:01+01:00', 'next_story_id': None}
+            server.save_story(story)
+            (folder / 'p01.wav').write_bytes(wav_bytes())
+            (folder / 'story.wav').write_bytes(wav_bytes())
+            r = client.delete(f'/api/story/{folder.name}')
+            self.assertEqual(r.status_code, 400, 'Deleted without archiving first')
+            client.post(f'/api/story/{folder.name}/archive')
+            r = client.delete(f'/api/story/{folder.name}')
+            self.assertEqual(r.status_code, 200)
+            self.assertTrue(r.json()['deleted'])
+            self.assertFalse(folder.is_dir(), 'Story folder removed')
+
+    def test_daily_cap_enforced_on_server(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'generate_text', return_value=('A quiet evening', ['Good night.'] * 4)), \
+                patch.object(server, 'start_audio'), patch.object(server, 'start_chain'):
+            def fake_voice(args, **kwargs):
+                Path(args[4]).write_bytes(wav_bytes())
+            with patch.object(server, 'mistral_speech', side_effect=RuntimeError('offline')), \
+                    patch.object(server.subprocess, 'run', side_effect=fake_voice):
+                server.CONFIG.daily_story_cap = 10
+                for day in range(10):
+                    r = client.post('/api/story', json=server.Choices(who='Robin').model_dump())
+                    self.assertEqual(r.status_code, 200, f'Story {day + 1} should be created')
+                r = client.post('/api/story', json=server.Choices(who='Robin').model_dump())
+                self.assertEqual(r.status_code, 429, '11th story refused')
+                status = client.get('/api/daily_cap').json()
+                self.assertEqual(status['remaining'], 0)
+                self.assertEqual(status['cap'], 10)
+
+    def test_daily_cap_default_and_config(self):
+        import server
+        cfg1 = server.Config(**({k: v for k, v in server.CONFIG.model_dump().items() if k != 'daily_story_cap'}))
+        self.assertEqual(cfg1.daily_story_cap, 10)
+        cfg2 = server.Config(**(server.CONFIG.model_dump() | {'daily_story_cap': 5}))
+        self.assertEqual(cfg2.daily_story_cap, 5)
+
+    def test_archive_and_delete_no_effect_on_classics_shelf(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            server.materialise_classic(server.classics.CLASSICS[0])
+            classics = client.get('/api/classics').json()
+            self.assertGreaterEqual(len(classics), 1)
+            r = client.delete('/api/story/classic-puss-in-boots')
+            self.assertEqual(r.status_code, 400)
+            classics2 = client.get('/api/classics').json()
+            self.assertGreaterEqual(len(classics2), 1, 'Classic remains after failed delete')
+
 
 class PassResult(unittest.TextTestResult):
     def addSuccess(self, test):

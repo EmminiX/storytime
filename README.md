@@ -99,6 +99,30 @@ Stories are saved under `stories/`. Downloads are WAV files and can be large. Sa
 
 Each story takes a few API calls: one text request and speech requests for its paragraphs. Choosing a story also starts a sequence of up to three stories. You pay your own providers for their API usage. Longer stories generally use more text and speech. There are no built-in spending limits.
 
+By default the server allows at most `daily_story_cap` new stories a day (new chain starts, default 10). The counter resets at midnight Irish time. Replace `config.json` with `config.example.json` to change the limits or voices.
+
+### Cost for one generated story
+
+Pricing as of 14 October 2026, from [Anthropic](https://docs.anthropic.com/en/docs/about-claude/pricing) and [Mistral](https://docs.mistral.ai/inference/pricing/). The word counts are the prompt targets from the code; actual output varies. The home version uses the free local Kokoro voice for reading aloud, so the hosted voice cost below applies only to the planned paid tiers.
+
+| Item | Provider | Short (600 words) | Medium (1200 words) | Long (2000 words) |
+|---|---:|---:|---:|---:|
+| Text tokens (input) | Claude Haiku 5.5 $0.10/MTok | < $0.01 | < $0.01 | < $0.01 |
+| Text tokens (output) | Claude Haiku 5.5 $0.50/MTok | ~ $0.0005 | ~ $0.0010 | ~ $0.0017 |
+| Voice characters | Voxtral TTS $16/M chars (~5 chars/word) | ~ $0.05 | ~ $0.10 | ~ $0.16 |
+| **One story total** | | **~ $0.05** | **~ $0.10** | **~ $0.16** |
+
+A new story starts a chain of up to three stories. Ten chains a day for 30 days, at the Short length:
+
+| Scenario | Monthly cost |
+|---|---:|
+| Text (30 stories × 30 days) | ~ $0.49 |
+| Voice, hosted ($16/M chars) | ~ $43 |
+| **Total, hosted voice** | **~ $44/month** |
+| **Total, local Kokoro voice** | **~ $0.49/month** |
+
+At the Long length (30 stories × 30 days, worst case): text ~ $1.56/month plus hosted voice ~ $144.
+
 AI-generated stories can contain mistakes or unsuitable content despite the gentle-story prompt. A parent should review what is appropriate for their child.
 
 ## License and author
