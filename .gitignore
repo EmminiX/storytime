@@ -8,3 +8,4 @@ __pycache__/
 WORKLOG.md
 VERDICT.txt
 VERDICT-paper-night.txt
+node_modules/

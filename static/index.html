@@ -28,6 +28,7 @@
 @media (prefers-color-scheme:dark){
   :root{--paper:#0f141c;--panel:#182029;--ink:#eef1f5;--muted:#a9b3c1;--line:#2c3542;
     --accent:#e9b25a;--accent-ink:#f2c472;--accent-soft:#3a2d16;--ring:#e9b25a}
+  html:not(.sleeping) body{background:radial-gradient(1100px 520px at 50% -120px,#1a2540 0%,var(--paper) 72%)}
 }
 /* ---------- base ---------- */
 *{box-sizing:border-box}
@@ -44,11 +45,11 @@ h1:focus,h2:focus{outline:none}
 .no-motion *,.no-motion *::before,.no-motion *::after{transition-duration:0s!important;transition-delay:0s!important;animation:none!important}
 
 /* ---------- top bar ---------- */
-.top{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1040px;margin:0 auto;padding:10px 32px 0;min-height:76px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;max-width:1040px;margin:0 auto;padding:10px 32px 0;padding-top:max(10px,env(safe-area-inset-top));min-height:76px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:20px;letter-spacing:.01em}
 .brand svg{width:30px;height:30px}
-.tools{display:flex;gap:12px}
-.pill{display:inline-flex;align-items:center;gap:10px;min-height:76px;padding:0 24px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);font-weight:500;font-size:17px;transition:border-color .2s var(--ease),background-color .2s var(--ease)}
+.tools{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:10px;min-height:76px;padding:0 24px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel);font-weight:500;font-size:17px;white-space:nowrap;transition:border-color .2s var(--ease),background-color .2s var(--ease)}
 .pill svg{width:22px;height:22px}
 .pill:hover{border-color:var(--ring)}
 .switch .track{position:relative;width:48px;height:28px;border-radius:999px;background:var(--line);transition:background-color .3s var(--ease)}
@@ -160,7 +161,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .tiles.c3{max-width:780px;margin:0 auto}
 .tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px;min-height:76px;padding:16px 12px 18px;border-radius:24px;background:var(--panel);border:2px solid var(--line);cursor:pointer;text-align:center;font-weight:500;font-size:20px;line-height:1.2;
   transition:border-color .2s var(--ease),box-shadow .25s var(--ease),background-color .25s var(--ease);animation:rise .55s var(--ease) both;animation-delay:calc(var(--i,0)*70ms)}
-.tile input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.tile input[type="radio"]{position:absolute;opacity:0;width:1px;height:1px;margin:0}
 .tile .pic{width:100%;aspect-ratio:1;max-height:150px;border-radius:16px;transition:transform .35s var(--ease)}
 .tile .pic.scene-pic{aspect-ratio:1.18;border-radius:18px}
 .tile .minutes{font-size:17px;font-weight:400;color:var(--muted);margin-top:-6px}
@@ -172,6 +173,10 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .seal{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;background:var(--accent);display:grid;place-items:center;opacity:0;transform:scale(.6);transition:opacity .25s var(--ease),transform .25s var(--ease)}
 .seal::after{content:'';width:12px;height:6px;border-left:3px solid #1e2733;border-bottom:3px solid #1e2733;transform:translate(0,-2px) rotate(-45deg)}
 .tile:has(input:checked) .seal{opacity:1;transform:none}
+.tile .own-input{width:100%;min-height:48px;margin-top:4px;padding:10px 14px;border:2px solid var(--line);border-radius:14px;background:var(--paper);font-size:18px;text-align:center}
+.tile .own-input::placeholder{color:var(--muted);opacity:.8}
+.tile .own-input:focus{border-color:var(--accent);outline:none}
+.tile:has(.own-input:focus){border-color:var(--accent)}
 /* ready step */
 .ready{max-width:640px;margin:0 auto;text-align:center}
 .summary{font-size:22px;line-height:1.5;margin:18px 0 0;color:var(--muted)}
@@ -199,7 +204,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .text p{position:relative;margin:0 0 14px;padding:18px 24px;border-radius:18px;font-size:clamp(20px,2.4vw,26px);line-height:1.7;color:var(--muted);border:2px solid transparent;transition:background-color .6s var(--ease),color .6s var(--ease),border-color .6s var(--ease)}
 .text p.active{color:var(--ink);background:var(--accent-soft);border-color:var(--accent)}
 .text p.done{opacity:.6}
-.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px 24px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 70%,transparent);transition:opacity 2s var(--ease)}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px 24px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 70%,transparent);box-shadow:0 -14px 34px -26px rgba(10,15,30,.5);transition:opacity 2s var(--ease)}
 .dock-in{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;max-width:720px;margin:0 auto;gap:16px}
 .playbtn{position:relative;width:112px;height:112px;border-radius:50%;background:var(--accent);color:#1e2733;display:grid;place-items:center;margin:0 auto;transition:transform .2s var(--ease),background-color 2s var(--ease),color 2s var(--ease)}
 .playbtn:active{transform:scale(.96)}
@@ -245,8 +250,14 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .book-actions .pill{margin:0}
 
 /* ---------- responsive ---------- */
+@media (max-width:900px){
+  .top{padding:8px 20px 0;padding-top:max(8px,env(safe-area-inset-top));gap:10px 12px}
+  main{padding:10px 20px 160px}
+  .pill{padding:0 16px;gap:8px;min-height:60px;font-size:16px}
+  .pill svg{width:20px;height:20px}
+}
 @media (max-width:700px){
-  .top{padding:8px 16px 0;min-height:64px}
+  .top{padding:8px 16px 0;padding-top:max(8px,env(safe-area-inset-top));min-height:64px}
   .brand{font-size:18px}
   .pill{padding:0 14px;min-height:60px;font-size:16px}
   .switch .label{display:none}
@@ -295,8 +306,10 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .skip-btn:hover{border-color:var(--ring)}
 .skip-btn:active{transform:scale(.96)}
 .skip-label{font-size:16px;line-height:1;color:var(--text);margin-top:2px}
-.book{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:16px;min-height:76px;padding:8px 14px 8px 10px;border-radius:18px;background:var(--panel);border:2px solid var(--line);text-align:left;transition:border-color .2s var(--ease),box-shadow .25s var(--ease);animation:rise .5s var(--ease) both;animation-delay:calc(var(--i,0)*70ms);width:100%}
-.book:hover{border-color:var(--ring);box-shadow:0 18px 30px -24px rgba(10,15,30,.6)}
+.book{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:16px;min-height:76px;padding:8px 14px 8px 10px;border-radius:18px;background:var(--panel);border:2px solid var(--line);text-align:left;transition:border-color .2s var(--ease),box-shadow .25s var(--ease),transform .2s var(--ease);animation:rise .5s var(--ease) both;animation-delay:calc(var(--i,0)*70ms);width:100%}
+.saved-row{position:relative}
+.saved-row .book-actions{position:absolute;top:-16px;right:12px;z-index:2;justify-content:flex-end}
+.book:hover{border-color:var(--ring);box-shadow:0 18px 30px -24px rgba(10,15,30,.6);transform:translateY(-2px)}
 .book .cover{width:104px;height:68px;border-radius:12px;display:block}
 .book strong{display:block;font-weight:500;font-size:17px;line-height:1.3}
 .book span.when{display:block;color:var(--muted);font-size:16px;margin-top:2px}
@@ -732,6 +745,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
         <label class="tile" style="--i:6"><input type="radio" name="where" value="France"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="40" height="120" fill="#3f6fb5"/><rect x="40" y="0" width="40" height="120" fill="#fff"/><rect x="80" y="0" width="40" height="120" fill="#e6a63d"/></svg>France<span class="seal"></span></label>
         <label class="tile" style="--i:7"><input type="radio" name="where" value="Japan"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#fff"/><circle cx="60" cy="60" r="30" fill="#e6a63d"/><circle cx="60" cy="60" r="15" fill="#fff"/></svg>Japan<span class="seal"></span></label>
         <label class="tile" style="--i:8"><input type="radio" name="where" value="Surprise me"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#e6a63d" rx="20"/><path d="M60 20 L65 40 L80 45 L70 55 L75 75 L60 65 L45 75 L50 55 L40 45 L55 40 Z" fill="#fff"/><path d="M60 80 Q65 85 70 80 Q65 90 60 85 Q55 90 50 80 Q55 85 60 80" fill="none" stroke="#fff" stroke-width="2"/></svg>Surprise me<span class="seal"></span></label>
+        <label class="tile" style="--i:9"><input type="radio" name="where" value="__own" aria-label="Our own place"><svg class="pic" viewBox="0 0 120 120" aria-hidden="true"><rect x="0" y="0" width="120" height="120" fill="#2f8f85" rx="20"/><path d="M24 64 L60 30 L96 64" stroke="#f4ecd2" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="34" y="62" width="52" height="38" rx="6" fill="#f4ecd2"/><rect x="52" y="76" width="16" height="24" rx="3" fill="#2a2320"/><circle cx="76" cy="74" r="5" fill="#e6a63d"/></svg>Our own place<input type="text" id="own-place" class="own-input" maxlength="60" placeholder="Type a place" autocomplete="off" enterkeyhint="next"><span class="seal"></span></label>
       </div>
     </section>
 
@@ -802,7 +816,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 <!-- ======== screen 2: play ======== -->
 <section id="play" class="screen" aria-labelledby="title" hidden>
   <div class="bar">
-    <button class="pill back" id="back" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg>Choose</button>
+    <button class="pill back" id="back" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg><span id="back-label">Choose</span></button>
     <span class="count" id="count"><span class="marks" aria-hidden="true"><i></i><i></i><i></i></span><span id="count-text">Story 1 of 3</span></span>
   </div>
   <div class="scene-slot band" id="slot-play"></div>
@@ -959,7 +973,11 @@ function cover(c) {
 }
 
 /* ---------- choices and the scene ---------- */
-function choices() { return Object.fromEntries(new FormData(form)); }
+function choices() {
+  const c = Object.fromEntries(new FormData(form));
+  if (c.where === '__own') c.where = $('own-place').value.trim().slice(0, 60) || 'Surprise me';
+  return c;
+}
 function updateScene(c = choices()) {
   scene.dataset.world = WORLDS[c.world].key; scene.dataset.friend = FRIENDS[c.friend]; scene.dataset.mood = MOODS[c.mood];
 }
@@ -983,7 +1001,7 @@ function renderSummary() {
   const c = choices(), s = $('summary');
   s.replaceChildren();
   const add = (t, b) => { const n = document.createElement(b ? 'b' : 'span'); n.textContent = t; s.append(n); };
-  const place = c.where ? PLACE_PHRASES[c.where] : 'a magical place';
+  const place = c.where ? (PLACE_PHRASES[c.where] || c.where) : 'a magical place';
   add('A '); add(MOODS[c.mood] === 'sleepy' ? 'sleepy' : MOODS[c.mood], 1); add(' story for '); add(listenerHero(c.who), 1);
   add(': in '); add(place, 1); add(' at '); add(WORLDS[c.world].place, 1); add(' with a '); add(friendWord(c.friend), 1); add(', read by '); add(VOICES[c.voice], 1); add('. ');
   add({short: '4 to 6 minutes.', medium: '8 to 11 minutes.', long: '14 to 18 minutes.'}[LENGTHS[c.length]]);
@@ -1007,7 +1025,15 @@ form.addEventListener('change', e => {
   if (e.target.name === 'hero') return;
   if (e.target.name === 'who') $('hero').value = listenerHero(e.target.value).slice(0, 60);
   updateScene(); renderChips();
-  if (e.target.name === ORDER[stepIndex]) { clearTimeout(advance); advance = setTimeout(() => goTo(stepIndex + 1), motion ? 520 : 150); }
+  if (e.target.name === ORDER[stepIndex]) {
+    if (e.target.name === 'where' && e.target.value === '__own') { $('own-place').focus(); return; }
+    clearTimeout(advance); advance = setTimeout(() => goTo(stepIndex + 1), motion ? 520 : 150);
+  }
+});
+$('own-place').addEventListener('input', () => {
+  const radio = form.querySelector('input[name="where"][value="__own"]');
+  if (!radio.checked) { radio.checked = true; updateScene(); }
+  renderChips();
 });
 form.addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -1140,7 +1166,7 @@ function highlight() {
   const current = $('text').children[paragraph];
   const changed = current && !current.classList.contains('active');
   [...$('text').children].forEach((p, i) => { p.classList.toggle('active', i === paragraph && !finished); p.classList.toggle('done', i < paragraph || finished); });
-  const engine = story?.engines?.[String(paragraph + 1)] || 'Not ready';
+  const engine = story?.classic ? 'Recorded voice' : (story?.engines?.[String(paragraph + 1)] || 'Not ready');
   $('engine').textContent = `Voice: ${VOICES[story?.choices?.voice] || 'Emma'} · ${engine}`;
   if (changed && wantsPlay && !html.classList.contains('sleeping')) current.scrollIntoView({block: 'center', behavior: motion ? 'smooth' : 'auto'});
 }
@@ -1221,8 +1247,13 @@ function nextParagraph() {
     say('Last paragraph.');
   }
 }
+let cameFrom = 'choose';
+const BACK_LABELS = {choose: 'Choose', shelf: 'Stories', classics: 'Classics', archive: 'Archive'};
 function openStory(value, autoplay = false) {
   const asleep = html.classList.contains('sleeping');
+  const visible = ['choose', 'shelf', 'classics', 'archive'].find(id => !$(id).hidden);
+  if (visible) cameFrom = visible;
+  $('back-label').textContent = BACK_LABELS[cameFrom];
   clearTimeout(advance); session++; stop(); story = value; paragraph = 0; finished = false; continuous = Boolean(story.continuous);
   resetMaking(); show('play'); render();
   if (source()) audio.src = source(); else audio.removeAttribute('src');
@@ -1264,7 +1295,7 @@ async function renderShelf() {
         history.length = 0;
         if (!s.ready) {
           const token = ++session;
-          try { const value = await request(`/api/story/${s.id}`); if (token === session) openStory(value); }
+          try { const value = await request(`/api/story/${s.id}`); if (token === session) { openStory(value, true); poll(); } }
           catch (error) { if (token === session) $('shelf-status').textContent = error.message; }
           return;
         }
@@ -1314,7 +1345,7 @@ async function renderArchive() {
         history.length = 0;
         if (!s.ready) {
           const token = ++session;
-          try { const value = await request(`/api/story/${s.id}`); if (token === session) openStory(value); }
+          try { const value = await request(`/api/story/${s.id}`); if (token === session) { openStory(value, true); poll(); } }
           catch (error) { if (token === session) $('archive-status').textContent = error.message; }
           return;
         }
@@ -1364,6 +1395,7 @@ async function checkDailyCap() {
 async function nextStory() {
   if (nextBusy) return;
   if (story?.classic) { say('That is the whole tale.'); return; }
+  if ((story?.number || 1) >= 3) { say('That is the last story tonight.'); return; }
   if (!story?.next_story_id) { say('The next story needs a moment…'); return; }
   nextBusy = true;
   const token = session, current = story;
@@ -1374,9 +1406,18 @@ async function nextStory() {
   } catch { if (token === session) say('The next story needs a moment…'); }
   finally { nextBusy = false; }
 }
-function previousStory() {
-  if (history.length) openStory(history.pop(), true);
-  else { stop(); resume(); }
+async function previousStory() {
+  if (history.length) { openStory(history.pop(), true); return; }
+  if (story?.prev_story_id) {
+    const token = session;
+    try {
+      const previous = await request(`/api/story/${story.prev_story_id}`);
+      if (token === session) openStory(previous, true);
+    } catch { if (token === session) say('The story before needs a moment…'); }
+    return;
+  }
+  stop(); resume();
+  if (!story?.audio_error) say('The first story, from the start.');
 }
 async function advanceStory() {
   if (!story || !waiting || !wantsPlay || paragraph < story.total) return;
@@ -1423,31 +1464,34 @@ if ('mediaSession' in navigator) {
 }
 $('playbtn').addEventListener('click', () => wantsPlay ? pause() : resume());
 $('stop').addEventListener('click', stop);
+const COLLECTIONS = {
+  shelf: {heading: 'shelf-h', render: renderShelf},
+  classics: {heading: 'classics-h', render: renderClassics},
+  archive: {heading: 'archive-h', render: renderArchive}
+};
+function goCollection(id) {
+  clearTimeout(advance); session++; stop(); story = null; history.length = 0;
+  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
+  clearTimeout(moveTimer); scene.classList.remove('night', 'player', 'fixed'); scene.style.cssText = ''; $('slot-choose').append(scene);
+  show(id); COLLECTIONS[id].render();
+  const heading = $(COLLECTIONS[id].heading);
+  heading.setAttribute('tabindex', '-1'); heading.focus({preventScroll: true});
+}
 $('back').addEventListener('click', () => {
   clearTimeout(advance); session++; stop(); story = null; history.length = 0;
   if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
-  scene.classList.remove('night', 'player'); show('choose'); updateScene(); goTo(0); sceneTo($('slot-choose')); $('back').blur(); renderShelf(); checkDailyCap();
+  if (cameFrom === 'choose') {
+    scene.classList.remove('night', 'player'); show('choose'); updateScene(); goTo(0); sceneTo($('slot-choose')); renderShelf(); checkDailyCap();
+  } else {
+    goCollection(cameFrom);
+  }
+  $('back').blur();
 });
-$('to-shelf').addEventListener('click', () => {
-  clearTimeout(advance); session++; stop(); story = null; history.length = 0;
-  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
-  clearTimeout(moveTimer); scene.classList.remove('night', 'player', 'fixed'); scene.style.cssText = ''; $('slot-choose').append(scene);
-  show('shelf'); renderShelf(); $('shelf-h').setAttribute('tabindex', '-1'); $('shelf-h').focus({preventScroll: true});
-});
+$('to-shelf').addEventListener('click', () => goCollection('shelf'));
 $('shelf-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
-$('to-classics').addEventListener('click', () => {
-  clearTimeout(advance); session++; stop(); story = null; history.length = 0;
-  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
-  clearTimeout(moveTimer); scene.classList.remove('night', 'player', 'fixed'); scene.style.cssText = ''; $('slot-choose').append(scene);
-  show('classics'); renderClassics(); $('classics-h').setAttribute('tabindex', '-1'); $('classics-h').focus({preventScroll: true});
-});
+$('to-classics').addEventListener('click', () => goCollection('classics'));
 $('classics-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
-$('to-archive').addEventListener('click', () => {
-  clearTimeout(advance); session++; stop(); story = null; history.length = 0;
-  if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
-  clearTimeout(moveTimer); scene.classList.remove('night', 'player', 'fixed'); scene.style.cssText = ''; $('slot-choose').append(scene);
-  show('archive'); renderArchive(); $('archive-h').setAttribute('tabindex', '-1'); $('archive-h').focus({preventScroll: true});
-});
+$('to-archive').addEventListener('click', () => goCollection('archive'));
 $('archive-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
 $('prev-story').addEventListener('click', previousStory);
 $('next-story').addEventListener('click', nextStory);

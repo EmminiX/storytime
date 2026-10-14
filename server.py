@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 BASE = Path(__file__).resolve().parent
 STORIES = BASE / 'stories'
+CLASSICS_AUDIO = BASE / 'classics_audio'
 MODEL = 'claude-haiku-5-5'
 TTS_MODEL = 'voxtral-mini-tts-2603'
 # shortcut: one household shares synthesis, use a priority queue if concurrent use grows.
@@ -85,11 +86,14 @@ config_path = BASE / 'config.json'
 CONFIG = Config(**json.loads((config_path if config_path.is_file() else BASE / 'config.example.json').read_text()))
 
 
+PLACES = ('New York City', 'London', 'Paris', 'Tokyo', 'Small village', 'Mountain town', 'France', 'Japan', 'Surprise me')
+
+
 class Choices(BaseModel):
     model_config = ConfigDict(extra='forbid')
     who: str = Field(default_factory=lambda: CONFIG.listeners[0].name, max_length=60)
     hero: str = Field(default='', max_length=60)
-    where: Literal['New York City', 'London', 'Paris', 'Tokyo', 'Small village', 'Mountain town', 'France', 'Japan', 'Surprise me'] | None = None
+    where: str | None = Field(default=None, max_length=60)
     world: Literal['Dragon castle', 'Space', 'Under the sea', 'Magic forest', 'Minecraft world', 'Dinosaur island', 'Farm', 'Snow mountain'] = 'Dragon castle'
     friend: Literal['Puppy', 'Robot', 'Unicorn', 'Fox', 'Tiny dragon', 'Cat', 'Owl', 'Penguin'] = 'Puppy'
     mood: Literal['Funny', 'Brave adventure', 'Calm and sleepy'] = 'Calm and sleepy'
@@ -107,6 +111,11 @@ class Choices(BaseModel):
         self.hero = self.hero.strip() or (' and '.join(names) if self.who in groups else self.who)
         if len(self.hero) > 60:
             self.hero = self.who
+        if self.where is not None:
+            place = self.where.strip()
+            if not place or place not in PLACES and any(ord(c) < 32 for c in place):
+                raise ValueError('Choose a place from the list or type your own on one line')
+            self.where = place
         return self
 
 
@@ -245,6 +254,41 @@ def materialise_classic(tale):
     return story
 
 
+def prev_story_id(story):
+    """Id of the story before this one in its chain, or None.
+    ponytail: linear scan of the small household store instead of a prev index."""
+    if story.get('classic') or story.get('number', 1) <= 1:
+        return None
+    with store_lock:
+        for path in STORIES.glob('*/story.json'):
+            try:
+                other = read_story(path.parent.name)
+            except HTTPException:
+                continue
+            if other.get('next_story_id') == story['id']:
+                return path.parent.name
+    return None
+
+
+def prerendered_classic(story_id):
+    """Pre-rendered MP3 audio for a classic tale, or None (MAY-706 option A).
+    The files are made once on the Mac with tools/render_classics.py and served
+    statically, so the Pi never needs a runtime or paid voice for a classic."""
+    if not is_classic(story_id):
+        return None
+    mp3 = CLASSICS_AUDIO / story_id / 'story.mp3'
+    if not mp3.is_file():
+        return None
+    try:
+        manifest = json.loads((CLASSICS_AUDIO / 'manifest.json').read_text())[story_id]
+        starts = manifest['starts']
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        return None
+    if not isinstance(starts, list) or not starts:
+        return None
+    return {'continuous': f'/classics_audio/{story_id}/story.mp3', 'paragraph_starts': starts}
+
+
 def snapshot(story):
     folder = STORIES / story['id']
     audio, playlist = [], []
@@ -258,8 +302,12 @@ def snapshot(story):
         else:
             break
     continuous = f"/stories/{story['id']}/story.wav" if (folder / 'story.wav').is_file() else None
-    return story | {'audio': audio, 'playlist': playlist, 'continuous': continuous,
-                    'ready': len(audio), 'total': len(story['paragraphs'])}
+    result = story | {'audio': audio, 'playlist': playlist, 'continuous': continuous,
+                      'ready': len(audio), 'total': len(story['paragraphs']), 'prev_story_id': prev_story_id(story)}
+    prerendered = prerendered_classic(story['id'])
+    if prerendered:
+        result |= prerendered | {'audio_error': None}
+    return result
 
 
 def concatenate_audio(paths, output, pauses):
@@ -496,10 +544,12 @@ def make_story(choices: Choices):
 @app.get('/api/story/{story_id}')
 def get_story(story_id: str):
     story = read_story(story_id)
-    if not story.get('audio_error'):
+    if not story.get('classic') and not story.get('audio_error'):
         if not (STORIES / story_id / 'story.wav').is_file():
             start_audio(story_id)
         start_chain(story.get('root_id', story_id))
+    elif story.get('classic') and not prerendered_classic(story_id) and not story.get('audio_error'):
+        start_audio(story_id)
     return snapshot(story)
 
 
@@ -536,7 +586,7 @@ def saved_stories(archived: bool = False):
                 continue
             if snapshot(story)['ready'] or story.get('audio_error'):
                 saved = snapshot(story)
-                stories.append({key: saved[key] for key in ('id', 'title', 'created', 'choices', 'number', 'continuous', 'playlist', 'engines', 'ready', 'total', 'audio_error') if key in saved})
+                stories.append({key: saved[key] for key in ('id', 'title', 'created', 'choices', 'number', 'continuous', 'playlist', 'engines', 'ready', 'total', 'audio_error', 'prev_story_id') if key in saved})
         except HTTPException:
             continue
     return stories
@@ -561,6 +611,16 @@ def audio_file(story_id: str, filename: str):
     if not path.is_file():
         raise HTTPException(404, 'Audio not ready')
     return FileResponse(path, media_type='audio/wav')
+
+
+@app.get('/classics_audio/{story_id}/{filename}')
+def classic_audio_file(story_id: str, filename: str):
+    if filename != 'story.mp3' or not any(tale['id'] == story_id for tale in classics.CLASSICS):
+        raise HTTPException(404, 'Audio not found')
+    path = CLASSICS_AUDIO / story_id / filename
+    if not path.is_file():
+        raise HTTPException(404, 'Audio not found')
+    return FileResponse(path, media_type='audio/mpeg')
 
 @app.get('/manifest.webmanifest')
 def manifest():
