@@ -7,7 +7,7 @@ import unittest
 import wave
 import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def wav_bytes(frames=2400, rate=24000):
@@ -417,9 +417,11 @@ class StorytimeCheck(unittest.TestCase):
             def local(args, **kwargs):
                 self.assertEqual(args[2], 'bf_emma', 'Classics are read by the chosen voice')
                 Path(args[4]).write_bytes(wav_bytes())
-            with patch.object(server, 'mistral_speech', side_effect=AssertionError('Classics must skip the paid voice')), \
+            mistral = Mock()
+            with patch.object(server, 'mistral_speech', mistral), \
                     patch.object(server.subprocess, 'run', side_effect=local):
                 server.synthesise('classic-puss-in-boots', 1, 'Once upon a time.')
+            mistral.assert_not_called()
             self.assertEqual(server.read_story('classic-puss-in-boots')['engines']['1'], 'Local fallback')
 
 
