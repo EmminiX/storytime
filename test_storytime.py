@@ -7,7 +7,7 @@ import unittest
 import wave
 import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def wav_bytes(frames=2400, rate=24000):
@@ -355,6 +355,74 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(results[0]['id'], '20241001-010101-old-story')
             self.assertEqual(results[0]['choices'], {},
                             'Empty choices dict for stories saved before voice was added')
+
+    def test_classics_exist_and_word_range(self):
+        import classics
+        self.assertEqual(len(classics.CLASSICS), 9, 'Nine classic tales must ship')
+        ids = [tale['id'] for tale in classics.CLASSICS]
+        titles = [tale['title'] for tale in classics.CLASSICS]
+        self.assertEqual(len(set(ids)), 9, 'Classic tale ids must be unique')
+        self.assertEqual(len(set(titles)), 9, 'Classic tale titles must be unique')
+        for tale in classics.CLASSICS:
+            self.assertTrue(tale['id'].startswith('classic-'), tale['id'])
+            self.assertTrue(tale['source'].startswith('after '), tale['title'])
+            self.assertGreater(len(tale['paragraphs']), 4, tale['title'])
+            words = classics.word_count(tale)
+            self.assertGreaterEqual(words, classics.MIN_WORDS, tale['title'])
+            self.assertLessEqual(words, classics.MAX_WORDS, tale['title'])
+            self.assertGreaterEqual(classics.estimated_minutes(tale), 6, tale['title'])
+            self.assertLessEqual(classics.estimated_minutes(tale), 10, tale['title'])
+
+    def test_classics_shelf_lists_nine(self):
+        import server
+        from fastapi.testclient import TestClient
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            client = TestClient(server.app)
+            response = client.get('/api/classics')
+            self.assertEqual(response.status_code, 200)
+            classics = response.json()
+            self.assertEqual(len(classics), 9, 'The Classics shelf lists nine tales')
+            titles = [item['title'] for item in classics]
+            for item in classics:
+                self.assertIn('source', item, item.get('title'))
+                self.assertTrue(item['source'].startswith('after '), item.get('title'))
+            self.assertIn('Puss in Boots', titles)
+            self.assertIn('Pinocchio', titles)
+            self.assertIn('Hansel and Gretel', titles)
+
+    def test_classics_excluded_from_saved_stories(self):
+        import server
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            for tale in server.classics.CLASSICS:
+                server.materialise_classic(tale)
+            self.assertEqual(server.saved_stories(), [], 'Classics stay out of the made-story shelf')
+
+    def test_classic_ids_read_safely(self):
+        import server
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            server.materialise_classic(server.classics.CLASSICS[0])
+            story = server.read_story('classic-puss-in-boots')
+            self.assertEqual(story['title'], 'Puss in Boots')
+            self.assertTrue(story['classic'])
+            self.assertEqual(story['source'], 'after Charles Perrault')
+            with self.assertRaises(server.HTTPException):
+                server.read_story('classic-../outside')
+            with self.assertRaises(server.HTTPException):
+                server.read_story('../outside')
+
+    def test_classic_audio_uses_local_voice_only(self):
+        import server
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            server.materialise_classic(server.classics.CLASSICS[0])
+            def local(args, **kwargs):
+                self.assertEqual(args[2], 'bf_emma', 'Classics are read by the chosen voice')
+                Path(args[4]).write_bytes(wav_bytes())
+            mistral = Mock()
+            with patch.object(server, 'mistral_speech', mistral), \
+                    patch.object(server.subprocess, 'run', side_effect=local):
+                server.synthesise('classic-puss-in-boots', 1, 'Once upon a time.')
+            mistral.assert_not_called()
+            self.assertEqual(server.read_story('classic-puss-in-boots')['engines']['1'], 'Local fallback')
 
 
 class PassResult(unittest.TextTestResult):

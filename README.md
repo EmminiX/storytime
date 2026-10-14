@@ -11,6 +11,8 @@ Storytime is a small bedtime story app for a household. Choose a listener, world
 
 A paper-cut night scene is made with inline SVG and CSS, with no image files for the scene. A Motion switch keeps the scene still when you prefer, and the app follows reduced-motion settings.
 
+The Classics shelf holds nine old tales (Puss in Boots, Pinocchio, Hansel and Gretel, and six more), retold gently in the public domain, separate from the made stories and played by the same player. Classics use the local voice only and never call the paid Mistral voice, so their audio is made only when a local fallback voice is configured.
+
 ## Security: home use only
 
 **There is no login, no HTTPS, and no rate limit. Anyone who can reach the app on your network can spend your API credit and read saved stories. Never expose it to the internet or port-forward it.**

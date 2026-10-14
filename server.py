@@ -9,6 +9,8 @@ import threading
 import urllib.error
 import urllib.request
 import wave
+
+import classics
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -192,7 +194,7 @@ def generate_text(choices, number, previous):
 
 
 def read_story(story_id):
-    if not re.fullmatch(r'\d{8}-\d{6}-[a-z0-9-]+', story_id):
+    if not (re.fullmatch(r'\d{8}-\d{6}-[a-z0-9-]+', story_id) or re.fullmatch(r'classic-[a-z0-9-]+', story_id)):
         raise HTTPException(404, 'Story not found')
     try:
         with store_lock:
@@ -214,6 +216,28 @@ def update_story(story_id, **changes):
         story = read_story(story_id)
         story.update(changes)
         save_story(story)
+
+
+CLASSIC_CREATED = '2026-01-01T00:00:00+00:00'
+
+
+def classic_story(tale):
+    return {'id': tale['id'], 'title': tale['title'], 'source': tale['source'],
+            'classic': True, 'choices': {'voice': 'bf_emma', 'world': 'Magic forest',
+            'friend': 'Owl', 'mood': 'Calm and sleepy'}, 'paragraphs': tale['paragraphs'],
+            'number': 1, 'created': CLASSIC_CREATED, 'root_id': tale['id'], 'next_story_id': None}
+
+
+def materialise_classic(tale):
+    story = classic_story(tale)
+    with store_lock:
+        path = STORIES / story['id'] / 'story.json'
+        if not path.is_file():
+            path.parent.mkdir(exist_ok=True)
+            temporary = path.with_suffix('.json.tmp')
+            temporary.write_text(json.dumps(story, ensure_ascii=False, indent=2))
+            temporary.replace(path)
+    return story
 
 
 def snapshot(story):
@@ -267,15 +291,9 @@ def mistral_speech(paragraph, voice, output):
             raise ValueError('Unsupported voice audio')
 
 
-def voice_clip(paragraph, voice, output):
-    try:
-        mistral_speech(paragraph, voice, output)
-        return 'Mistral'
-    except Exception as error:
-        # Provider bodies and exception messages may contain private data; log only safe diagnostics.
-        log.warning('Mistral unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
+def local_voice_clip(paragraph, voice, output):
     if not CONFIG.fallback_tts_command:
-        raise RuntimeError('Mistral audio is unavailable and no local fallback is configured')
+        raise RuntimeError('No local voice fallback is configured')
     command = [part.format(voice=voice, output=str(output)) for part in shlex.split(CONFIG.fallback_tts_command)]
     subprocess.run(command, input=paragraph, encoding='utf-8',
                    check=True, timeout=120, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -283,6 +301,16 @@ def voice_clip(paragraph, voice, output):
         if (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) != (1, 2, 24000) or not audio.getnframes():
             raise ValueError('Unsupported fallback audio')
     return 'Local fallback'
+
+
+def voice_clip(paragraph, voice, output):
+    try:
+        mistral_speech(paragraph, voice, output)
+        return 'Mistral'
+    except Exception as error:
+        # Provider bodies and exception messages may contain private data; log only safe diagnostics.
+        log.warning('Mistral unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
+    return local_voice_clip(paragraph, voice, output)
 
 
 def prepare_paragraph(story_id, number):
@@ -296,7 +324,9 @@ def prepare_paragraph(story_id, number):
 
 def synthesise(story_id, number, paragraph):
     global voice_busy, first_waiters
-    voice = Choices(**read_story(story_id)['choices']).voice
+    story = read_story(story_id)
+    voice = Choices(**story['choices']).voice
+    classic = bool(story.get('classic'))
     path = STORIES / story_id / f'p{number:02}.wav'
     temporary = path.with_name(path.stem + '.tmp.wav')
     with voice_condition:
@@ -309,7 +339,7 @@ def synthesise(story_id, number, paragraph):
             first_waiters -= 1
     try:
         with voice_lock:
-            engine = voice_clip(paragraph, voice, temporary)
+            engine = local_voice_clip(paragraph, voice, temporary) if classic else voice_clip(paragraph, voice, temporary)
             temporary.replace(path)
             engines = read_story(story_id).get('engines', {})
             engines[str(number)] = engine
@@ -321,13 +351,16 @@ def synthesise(story_id, number, paragraph):
             voice_condition.notify_all()
 
 
-def audio_error_message():
+def audio_error_message(classic=False):
+    if classic:
+        return 'Audio unavailable: this classic uses the local voice, which is not configured. The story text is shown.'
     if not CONFIG.fallback_tts_command:
         return 'Audio unavailable: Mistral could not make the voice and no local fallback is configured. The story text is saved.'
     return 'Audio unavailable: Mistral and the local fallback could not make the voice. The story text is saved.'
 
 
 def finish_audio(story_id):
+    classic = bool(read_story(story_id).get('classic'))
     try:
         story = read_story(story_id)
         for number, paragraph in enumerate(story['paragraphs'], 1):
@@ -344,7 +377,7 @@ def finish_audio(story_id):
         concatenate_audio(clips, folder / 'story.wav', [0] * len(clips))
         update_story(story_id, audio_error=None, paragraph_starts=starts)
     except Exception as error:
-        update_story(story_id, audio_error=audio_error_message())
+        update_story(story_id, audio_error=audio_error_message(classic))
         log.error('Audio generation failed for %s: %s', story_id, type(error).__name__)
 
 
@@ -384,6 +417,8 @@ def continue_stories(root_id):
     try:
         while True:
             story = read_story(current)
+            if story.get('classic'):
+                return
             previous.append(story['title'])
             if story['number'] == 3:
                 return
@@ -415,10 +450,12 @@ def start_chain(root_id):
 @asynccontextmanager
 async def lifespan(app):
     STORIES.mkdir(exist_ok=True)
+    for tale in classics.CLASSICS:
+        materialise_classic(tale)
     for path in sorted(STORIES.glob('*/story.json')):
         try:
             story = read_story(path.parent.name)
-            if story.get('audio_error'):
+            if story.get('classic') or story.get('audio_error'):
                 continue
             if not (STORIES / story['id'] / 'story.wav').is_file():
                 start_audio(story['id'])
@@ -465,12 +502,19 @@ def saved_stories():
     for path in sorted(STORIES.glob('*/story.json'), reverse=True):
         try:
             story = read_story(path.parent.name)
+            if story.get('classic'):
+                continue
             if snapshot(story)['ready'] or story.get('audio_error'):
                 saved = snapshot(story)
                 stories.append({key: saved[key] for key in ('id', 'title', 'created', 'choices', 'number', 'continuous', 'playlist', 'engines', 'ready', 'total', 'audio_error') if key in saved})
         except HTTPException:
             continue
     return stories
+
+
+@app.get('/api/classics')
+def saved_classics():
+    return [snapshot(classic_story(tale)) for tale in classics.CLASSICS]
 
 
 @app.get('/api/config')
