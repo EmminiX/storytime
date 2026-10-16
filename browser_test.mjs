@@ -251,9 +251,54 @@ try {
     if ((await page.textContent('#title')).trim() === title) throw new Error('item 6: story back did not open the previous story');
     await page.click('#next-story');
     await page.waitForFunction(t => document.querySelector('#title').textContent.trim() === t, title, { timeout: 5000 });
-    await page.click('#next-story');
+    if (await page.getAttribute('#next-story', 'aria-disabled') !== 'true') throw new Error('next story is not dimmed on the last story');
+    await page.click('#next-story', { force: true }); // dimmed, not disabled: the tap still explains itself
     await page.waitForFunction(() => /last story tonight/.test(document.querySelector('#status').textContent), null, { timeout: 3000 });
     console.log('PASS item 6: story back opens the previous story, story next returns and reports the last story');
+    await page.close();
+  }
+
+  // Favourites: tap the heart on the seeded story, reload, it is in the Favourites view with a filled heart.
+  {
+    let page = await run(1024, 768);
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    const row = page.locator('#books .saved-row', { hasText: 'The Quiet Rocket' });
+    await row.locator('.heart').click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#books .saved-row')].some(r => r.textContent.includes('The Quiet Rocket') && r.querySelector('.heart').getAttribute('aria-pressed') === 'true'), null, { timeout: 5000 });
+    await page.close();
+    page = await run(1024, 768);
+    await page.click('#to-shelf');
+    await page.click('#filter-fav');
+    await page.waitForFunction(() => document.querySelectorAll('#books .saved-row').length === 1, null, { timeout: 10000 });
+    const titles = await page.$$eval('#books .saved-row strong', nodes => nodes.map(n => n.textContent));
+    if (titles.length !== 1 || titles[0] !== 'The Quiet Rocket') throw new Error(`favourites view lists ${JSON.stringify(titles)}, expected only The Quiet Rocket`);
+    const filled = await page.getAttribute('#books .saved-row .heart', 'aria-pressed');
+    if (filled !== 'true') throw new Error('the heart in the Favourites view is not filled');
+    await page.click('#books .saved-row .book');
+    await page.waitForFunction(() => !document.querySelector('#play').hidden, null, { timeout: 5000 });
+    if (await page.getAttribute('#fav', 'aria-pressed') !== 'true' || await page.getAttribute('#fav', 'aria-label') !== 'Favourited') throw new Error('the player heart is not filled for a favourite');
+    await page.click('#fav');
+    await page.waitForFunction(() => document.querySelector('#fav').getAttribute('aria-pressed') === 'false', null, { timeout: 5000 });
+    console.log('PASS favourites: heart on the shelf survives a reload, the Favourites view lists it, the player heart toggles it back off');
+    await page.close();
+  }
+
+  // The heart and archive buttons never sit on top of a title, on the iPad in both orientations and on a phone.
+  for (const [width, height] of [[1024, 768], [768, 1024], [390, 844]]) {
+    const page = await run(width, height);
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    const covered = await page.evaluate(() => [...document.querySelectorAll('#books .saved-row')].filter(row => {
+      const boxes = [...row.querySelectorAll('.book-actions button')].map(b => b.getBoundingClientRect());
+      const range = document.createRange();
+      return [...row.querySelectorAll('.meta strong, .meta .when')].some(el => {
+        range.selectNodeContents(el);
+        return [...range.getClientRects()].some(t => boxes.some(b => t.left < b.right && t.right > b.left && t.top < b.bottom && t.bottom > b.top));
+      });
+    }).map(row => row.querySelector('strong').textContent));
+    if (covered.length) throw new Error(`${width}x${height}: row buttons cover the text of ${covered.join(', ')}`);
+    console.log(`PASS ${width}x${height}: no heart or archive button sits on a story title`);
     await page.close();
   }
 
