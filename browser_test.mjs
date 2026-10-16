@@ -284,6 +284,24 @@ try {
     await page.close();
   }
 
+  // The heart and archive buttons never sit on top of a title, on the iPad in both orientations and on a phone.
+  for (const [width, height] of [[1024, 768], [768, 1024], [390, 844]]) {
+    const page = await run(width, height);
+    await page.click('#to-shelf');
+    await page.waitForSelector('#books .saved-row', { timeout: 10000 });
+    const covered = await page.evaluate(() => [...document.querySelectorAll('#books .saved-row')].filter(row => {
+      const boxes = [...row.querySelectorAll('.book-actions button')].map(b => b.getBoundingClientRect());
+      const range = document.createRange();
+      return [...row.querySelectorAll('.meta strong, .meta .when')].some(el => {
+        range.selectNodeContents(el);
+        return [...range.getClientRects()].some(t => boxes.some(b => t.left < b.right && t.right > b.left && t.top < b.bottom && t.bottom > b.top));
+      });
+    }).map(row => row.querySelector('strong').textContent));
+    if (covered.length) throw new Error(`${width}x${height}: row buttons cover the text of ${covered.join(', ')}`);
+    console.log(`PASS ${width}x${height}: no heart or archive button sits on a story title`);
+    await page.close();
+  }
+
   // MAY-706 item 8: a child can type their own place in the Where step.
   {
     const page = await run(1180, 820);

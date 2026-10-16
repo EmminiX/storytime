@@ -598,7 +598,7 @@ def read_favorites():
     try:
         with store_lock:
             ids = json.loads((STORIES / 'favorites.json').read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):  # ValueError covers bad JSON and bad UTF-8
         return []
     return [i for i in ids if isinstance(i, str)] if isinstance(ids, list) else []
 

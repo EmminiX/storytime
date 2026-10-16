@@ -638,6 +638,20 @@ class StorytimeCheck(unittest.TestCase):
                     self.assertEqual(client.post(f'/api/favorites/{bad}').status_code, 404)
             self.assertFalse((Path(directory) / 'favorites.json').exists())
 
+    def test_corrupt_favorites_file_does_not_break_the_shelves(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        for junk in (b'\xff\xfe', b'{not json', b'null', b'{"a": 1}'):
+            with self.subTest(junk=junk), tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+                (Path(directory) / 'favorites.json').write_bytes(junk)
+                self.assertEqual(client.get('/api/favorites').json(), [])
+                self.assertEqual(client.get('/api/stories').status_code, 200)
+                classics = client.get('/api/classics')
+                self.assertEqual(classics.status_code, 200)
+                self.assertFalse(any(c['favorite'] for c in classics.json()))
+                self.assertTrue(client.post(f"/api/favorites/{server.classics.CLASSICS[0]['id']}").json()['favorite'])
+
 
 class PassResult(unittest.TextTestResult):
     def addSuccess(self, test):
