@@ -623,6 +623,11 @@ class StorytimeCheck(unittest.TestCase):
             self.assertTrue(client.get('/api/stories').json()[0]['favorite'])
             self.assertEqual([c['id'] for c in client.get('/api/classics').json() if c['favorite']], [classic_id])
             self.assertTrue(client.get(f'/api/story/{folder.name}').json()['favorite'])
+            for workers in (server.audio_threads, server.chain_threads):  # the GET started both workers: own and finish them before the fixture goes
+                worker = workers.pop(folder.name, None)
+                self.assertIsNotNone(worker)
+                worker.join(timeout=10)
+                self.assertFalse(worker.is_alive())
             self.assertEqual(client.post(f'/api/favorites/{folder.name}').json(), {'id': folder.name, 'favorite': False})
             self.assertEqual(client.get('/api/favorites').json(), [classic_id])
             self.assertFalse(client.get('/api/stories').json()[0]['favorite'])
