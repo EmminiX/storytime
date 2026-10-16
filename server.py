@@ -551,7 +551,7 @@ def get_story(story_id: str):
         start_chain(story.get('root_id', story_id))
     elif story.get('classic') and not prerendered_classic(story_id) and not story.get('audio_error'):
         start_audio(story_id)
-    return snapshot(story)
+    return {**snapshot(story), 'favorite': story_id in read_favorites()}
 
 
 def count_stories_today():
@@ -577,6 +577,7 @@ def daily_cap_status():
 @app.get('/api/stories')
 def saved_stories(archived: bool = False):
     stories = []
+    ids = read_favorites()
     for path in sorted(STORIES.glob('*/story.json'), reverse=True):
         try:
             story = read_story(path.parent.name)
@@ -587,15 +588,45 @@ def saved_stories(archived: bool = False):
                 continue
             if snapshot(story)['ready'] or story.get('audio_error'):
                 saved = snapshot(story)
-                stories.append({key: saved[key] for key in ('id', 'title', 'created', 'choices', 'number', 'continuous', 'playlist', 'engines', 'ready', 'total', 'audio_error', 'prev_story_id') if key in saved})
+                stories.append({key: saved[key] for key in ('id', 'title', 'created', 'choices', 'number', 'continuous', 'playlist', 'engines', 'ready', 'total', 'audio_error', 'prev_story_id') if key in saved} | {'favorite': story['id'] in ids})
         except HTTPException:
             continue
     return stories
 
 
+def read_favorites():
+    try:
+        with store_lock:
+            ids = json.loads((STORIES / 'favorites.json').read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [i for i in ids if isinstance(i, str)] if isinstance(ids, list) else []
+
+
+@app.get('/api/favorites')
+def get_favorites():
+    return read_favorites()
+
+
+@app.post('/api/favorites/{story_id}')
+def toggle_favorite(story_id: str):
+    if not any(tale['id'] == story_id for tale in classics.CLASSICS):
+        read_story(story_id)
+    with store_lock:
+        ids = read_favorites()
+        favorite = story_id not in ids
+        ids = ids + [story_id] if favorite else [i for i in ids if i != story_id]
+        path = STORIES / 'favorites.json'
+        temporary = path.with_suffix('.json.tmp')
+        temporary.write_text(json.dumps(ids))
+        temporary.replace(path)
+    return {'id': story_id, 'favorite': favorite}
+
+
 @app.get('/api/classics')
 def saved_classics():
-    return [snapshot(classic_story(tale)) for tale in classics.CLASSICS]
+    ids = read_favorites()
+    return [{**snapshot(classic_story(tale)), 'favorite': tale['id'] in ids} for tale in classics.CLASSICS]
 
 
 @app.get('/api/config')

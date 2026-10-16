@@ -59,7 +59,7 @@ h1:focus,h2:focus{outline:none}
 .switch b{font-weight:600;color:var(--accent-ink)}
 
 /* ---------- screens ---------- */
-main{max-width:1040px;margin:0 auto;padding:10px 32px 160px}
+main{max-width:1040px;margin:0 auto;padding:10px 32px 200px}
 .screen{animation:fade .5s var(--ease) both}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
@@ -149,11 +149,12 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .ask{display:grid;grid-template-columns:76px 1fr 76px;align-items:center;gap:16px;margin:0 0 22px}
 .ask h2{grid-column:2}
 .ask h2,.step>h2{margin:0;text-align:center;font-size:clamp(34px,4.7vw,56px);font-weight:500;line-height:1.15;letter-spacing:-.01em}
-.round{width:76px;height:76px;border-radius:50%;border:2px solid var(--line);background:var(--panel);display:grid;place-items:center;transition:border-color .2s var(--ease),background-color .2s var(--ease),transform .2s var(--ease)}
-.round svg{width:30px;height:30px}
+.round{width:76px;height:76px;border-radius:50%;border:1.5px solid var(--line);background:var(--panel);display:grid;place-items:center;box-shadow:0 10px 22px -16px rgba(10,15,30,.6);transition:border-color .2s var(--ease),background-color .2s var(--ease),box-shadow .2s var(--ease),transform .2s var(--ease)}
+.round svg{width:32px;height:32px}
 .round:hover{border-color:var(--ring)}
-.round:active{transform:scale(.96)}
+.round:active{transform:scale(.96);box-shadow:none;background:var(--accent-soft);border-color:var(--accent)}
 .round.next{background:var(--accent);border-color:var(--accent);color:#1e2733}
+.round.next:active{background:var(--accent);filter:brightness(.92)}
 .ask .spacer{width:76px;height:76px}
 .tiles{display:grid;gap:20px;grid-template-columns:repeat(4,minmax(0,1fr))}
 .tiles.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -204,7 +205,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .text p{position:relative;margin:0 0 14px;padding:18px 24px;border-radius:18px;font-size:clamp(20px,2.4vw,26px);line-height:1.7;color:var(--muted);border:2px solid transparent;transition:background-color .6s var(--ease),color .6s var(--ease),border-color .6s var(--ease)}
 .text p.active{color:var(--ink);background:var(--accent-soft);border-color:var(--accent)}
 .text p.done{opacity:.6}
-.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px 24px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 70%,transparent);box-shadow:0 -14px 34px -26px rgba(10,15,30,.5);transition:opacity 2s var(--ease)}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px max(24px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));background:linear-gradient(to top,var(--paper) 70%,transparent);box-shadow:0 -14px 34px -26px rgba(10,15,30,.5);transition:opacity 2s var(--ease)}
 .dock-in{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;max-width:720px;margin:0 auto;gap:16px}
 .playbtn{position:relative;width:112px;height:112px;border-radius:50%;background:var(--accent);color:#1e2733;display:grid;place-items:center;margin:0 auto;transition:transform .2s var(--ease),background-color 2s var(--ease),color 2s var(--ease)}
 .playbtn:active{transform:scale(.96)}
@@ -247,12 +248,24 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 .pill.danger{border-color:#d6604d;color:#d6604d}
 .pill.danger:hover{background:#3a1414}
 .book-actions{display:flex;gap:6px;align-items:center}
+.heart{display:inline-grid;place-items:center;width:48px;height:48px;border-radius:50%;color:var(--muted);transition:color .2s var(--ease),transform .2s var(--ease)}
+.heart svg{width:26px;height:26px}
+.heart path{fill:transparent;stroke:currentColor;stroke-width:2;stroke-linejoin:round;transition:fill .2s var(--ease)}
+.heart[aria-pressed="true"]{color:var(--accent)}
+.heart[aria-pressed="true"] path{fill:currentColor}
+.heart:active{transform:scale(.94)}
+.title-row{display:flex;align-items:center;justify-content:center;gap:8px;margin:22px 0 4px}
+.title-row .title{margin:0}
+.sleeping .title-row .heart{visibility:hidden}
+.filters{display:flex;gap:10px;margin:0 0 18px}
+.filters .pill{min-height:52px;padding:0 20px;font-size:16px}
+.filters .pill[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
 .book-actions .pill{margin:0;min-width:44px;min-height:44px;touch-action:manipulation}
 
 /* ---------- responsive ---------- */
 @media (max-width:900px){
   .top{padding:8px 20px 0;padding-top:max(8px,env(safe-area-inset-top));gap:10px 12px}
-  main{padding:10px 20px 160px}
+  main{padding:10px 20px 200px}
   .pill{padding:0 16px;gap:8px;min-height:60px;font-size:16px}
   .pill svg{width:20px;height:20px}
 }
@@ -261,7 +274,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   .brand{font-size:18px}
   .pill{padding:0 14px;min-height:60px;font-size:16px}
   .switch .label{display:none}
-  main{padding:8px 16px 150px}
+  main{padding:8px 16px 190px}
   .scene-slot{height:clamp(200px,30vh,260px)}
   .scene-slot.band{height:180px}
   .chips{gap:4px;padding:6px 8px;margin-top:-30px}
@@ -276,6 +289,12 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   .tile .pic{max-height:130px}
   .text p{padding:14px 16px}
   .dock-in{grid-template-columns:1fr auto 1fr;gap:10px}
+  .skip-controls{gap:4px}
+  .skip-label{font-size:13px}
+  .skip-btn{width:82px;grid-template-rows:72px auto}
+  .skip-btn .disc{width:64px;height:64px}
+  .skip-btn.story .disc{width:72px;height:72px}
+  .skip-btn svg{width:30px;height:30px}
   .playbtn{width:92px;height:92px}
   .books{grid-template-columns:1fr}
   .book{grid-template-columns:104px 1fr 44px}
@@ -300,15 +319,22 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 
 .tile{overflow-wrap:anywhere}
 .sleeping .engine{visibility:hidden}
-.skip-controls{display:flex;justify-content:center;gap:16px;margin-top:16px}
-.skip-btn{width:64px;height:64px;border-radius:50%;background:var(--panel);border:2px solid var(--line);display:grid;place-items:center;transition:border-color .2s var(--ease),background-color .2s var(--ease);touch-action:manipulation}
-.skip-btn svg{width:28px;height:28px}
-.skip-btn:hover{border-color:var(--ring)}
-.skip-btn:active{transform:scale(.96)}
-.skip-label{font-size:16px;line-height:1;color:var(--text);margin-top:2px}
+.skip-controls{display:flex;justify-content:center;gap:12px;margin:14px auto 0;max-width:720px}
+.skip-btn{display:grid;grid-template-rows:84px auto;justify-items:center;align-items:center;row-gap:6px;width:96px;color:var(--ink);touch-action:manipulation}
+.skip-btn .disc{display:grid;place-items:center;width:76px;height:76px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);box-shadow:0 10px 22px -16px rgba(10,15,30,.6);transition:border-color .2s var(--ease),background-color .2s var(--ease),box-shadow .2s var(--ease),transform .2s var(--ease)}
+.skip-btn.story .disc{width:84px;height:84px;color:var(--accent-ink)}
+.skip-btn svg{width:34px;height:34px}
+.skip-btn:hover .disc{border-color:var(--ring)}
+.skip-btn:active .disc{transform:scale(.96);background:var(--accent-soft);border-color:var(--accent);box-shadow:none}
+.skip-btn[aria-disabled="true"]{opacity:.4}
+.skip-btn[aria-disabled="true"] .disc{box-shadow:none}
+.skip-btn[aria-disabled="true"]:hover .disc{border-color:var(--line)}
+.skip-btn[aria-disabled="true"]:active .disc{transform:none;background:var(--panel);border-color:var(--line)}
+.skip-label{font-size:15px;font-weight:500;line-height:1;color:var(--muted)}
 .book{display:grid;grid-template-columns:104px 1fr 44px;align-items:center;gap:16px;min-height:76px;padding:8px 14px 8px 10px;border-radius:18px;background:var(--panel);border:2px solid var(--line);text-align:left;transition:border-color .2s var(--ease),box-shadow .25s var(--ease),transform .2s var(--ease);animation:rise .5s var(--ease) both;animation-delay:calc(var(--i,0)*70ms);width:100%}
 .saved-row{position:relative}
 .saved-row .book-actions{position:absolute;top:4px;right:64px;z-index:2;justify-content:flex-end}
+@media(max-width:700px){.saved-row .book-actions{right:6px}}
 .book:hover{border-color:var(--ring);box-shadow:0 18px 30px -24px rgba(10,15,30,.6);transform:translateY(-2px)}
 .book .cover{width:104px;height:68px;border-radius:12px;display:block}
 .book strong{display:block;font-weight:500;font-size:17px;line-height:1.3}
@@ -649,12 +675,12 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
   </g>
 
   <!-- small UI marks (24 x 24) -->
-  <g id="i-back"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-back"><path d="M15.5 5 L8.5 12 L15.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
   <g id="i-next"><path d="M5 12 H19 M13 6 L19 12 L13 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g id="i-prev-paragraph"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g id="i-next-paragraph"><path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g id="i-prev-story"><path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5 L8 12 L5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="11" y1="5" x2="11" y2="19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>
-  <g id="i-next-story"><path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 5 L16 12 L13 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="17" y1="5" x2="17" y2="19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></g>
+  <g id="i-prev-paragraph"><path d="M15.5 5 L8.5 12 L15.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-next-paragraph"><path d="M8.5 5 L15.5 12 L8.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-prev-story"><path d="M11.5 5 L5.5 12 L11.5 19 M18.5 5 L12.5 12 L18.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="i-next-story"><path d="M5.5 5 L11.5 12 L5.5 19 M12.5 5 L18.5 12 L12.5 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
   <g id="i-play"><path d="M8 5 L19 12 L8 19Z" fill="currentColor"/></g>
   <g id="i-pause"><rect x="6" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"/></g>
   <g id="i-stop"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></g>
@@ -837,7 +863,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
     <span class="count" id="count"><span class="marks" aria-hidden="true"><i></i><i></i><i></i></span><span id="count-text">Story 1 of 3</span></span>
   </div>
   <div class="scene-slot band" id="slot-play"></div>
-  <h1 class="title" id="title" tabindex="-1"></h1>
+  <div class="title-row"><h1 class="title" id="title" tabindex="-1"></h1><button class="heart" id="fav" type="button" aria-pressed="false" aria-label="Favourite"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5C5 15.5 3 12 3 8.8 3 6.2 5 4.5 7.3 4.5c1.9 0 3.7 1.1 4.7 2.9 1-1.8 2.8-2.9 4.7-2.9C19 4.5 21 6.2 21 8.8c0 3.2-2 6.7-9 11.7z"/></svg></button></div>
   <p class="reader" id="reader"></p>
   <p id="engine" class="engine"></p>
   <div class="text" id="text"></div>
@@ -854,10 +880,10 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
       <button class="stopbtn" id="stop" type="button" aria-label="Stop story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-stop"/></svg>Stop</button>
     </div>
     <div class="skip-controls">
-      <button class="skip-btn" id="prev-story" type="button" aria-label="Previous story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-story"/></svg><span class="skip-label">Story</span></button>
-      <button class="skip-btn" id="prev-paragraph" type="button" aria-label="Previous paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-paragraph"/></svg><span class="skip-label">Part</span></button>
-      <button class="skip-btn" id="next-paragraph" type="button" aria-label="Next paragraph"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-paragraph"/></svg><span class="skip-label">Part</span></button>
-      <button class="skip-btn" id="next-story" type="button" aria-label="Next story"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-story"/></svg><span class="skip-label">Story</span></button>
+      <button class="skip-btn story" id="prev-story" type="button" aria-label="Previous story"><span class="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-story"/></svg></span><span class="skip-label">Story</span></button>
+      <button class="skip-btn part" id="prev-paragraph" type="button" aria-label="Previous paragraph"><span class="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-prev-paragraph"/></svg></span><span class="skip-label">Paragraph</span></button>
+      <button class="skip-btn part" id="next-paragraph" type="button" aria-label="Next paragraph"><span class="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-paragraph"/></svg></span><span class="skip-label">Paragraph</span></button>
+      <button class="skip-btn story" id="next-story" type="button" aria-label="Next story"><span class="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next-story"/></svg></span><span class="skip-label">Story</span></button>
     </div>
   </div>
 </section>
@@ -866,6 +892,7 @@ html:not(.js) .chips,html:not(.js) .next,html:not(.js) .prev{display:none}
 <section id="shelf" class="screen" aria-labelledby="shelf-h" hidden>
   <div class="bar"><button class="pill back" id="shelf-back" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-back"/></svg>Choose</button></div>
   <h1 class="h" id="shelf-h">Stories so far</h1>
+  <div class="filters"><button class="pill" id="filter-all" type="button" aria-pressed="true">All</button><button class="pill" id="filter-fav" type="button" aria-pressed="false">Favourites</button></div>
   <p class="status" id="shelf-status" role="status" aria-live="polite"></p>
   <div class="books" id="books" role="list"></div>
 </section>
@@ -1204,7 +1231,28 @@ function render() {
   $('count').querySelector('.marks').hidden = Boolean(story.classic);
   [...$('count').querySelectorAll('i')].forEach((m, i) => m.classList.toggle('done', i < (story.number || 1)));
   $('reader').textContent = `${VOICES[story.choices?.voice] || 'Someone'} reads this one.`;
-  highlight(); ring(0); mediaMetadata();
+  highlight(); ring(0); mediaMetadata(); updateSkip(); updateFav();
+}
+function updateSkip() {
+  $('prev-story').setAttribute('aria-disabled', String(!history.length && !story.prev_story_id));
+  $('next-story').setAttribute('aria-disabled', String(Boolean(story.classic) || (story.number || 1) >= 3));
+}
+const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5C5 15.5 3 12 3 8.8 3 6.2 5 4.5 7.3 4.5c1.9 0 3.7 1.1 4.7 2.9 1-1.8 2.8-2.9 4.7-2.9C19 4.5 21 6.2 21 8.8c0 3.2-2 6.7-9 11.7z"/></svg>';
+function setHeart(button, on) { button.setAttribute('aria-pressed', String(on)); button.setAttribute('aria-label', on ? 'Favourited' : 'Favourite'); }
+function updateFav() { setHeart($('fav'), Boolean(story.favorite)); }
+async function toggleFavorite(id, status, button) {
+  try {
+    const result = await request(`/api/favorites/${id}`, {method: 'POST'});
+    setHeart(button, result.favorite);
+    if (story && story.id === id) { story.favorite = result.favorite; updateFav(); }
+    renderShelf(); renderClassics();
+  } catch (err) { status.textContent = err.message; }
+}
+function heartButton(s, status) {
+  const heart = document.createElement('button'); heart.type = 'button'; heart.className = 'heart'; heart.innerHTML = HEART;
+  setHeart(heart, Boolean(s.favorite));
+  heart.addEventListener('click', ev => { ev.stopPropagation(); toggleFavorite(s.id, status, heart); });
+  return heart;
 }
 function source() { const url = continuous ? story.continuous : (story.playlist || story.audio)[paragraph]; return badAudio.has(url) ? undefined : url; }
 function stop() {
@@ -1287,72 +1335,84 @@ async function request(url, options) {
 }
 
 /* ---------- saved stories ---------- */
-let shelfKey = '', archiveKey = '';
-async function renderShelf() {
-  try {
-    const saved = await request('/api/stories');
-    const key = JSON.stringify(saved);
-    if (key === shelfKey) return;
-    shelfKey = key;
-    $('shelf-status').textContent = '';
-    if (!saved.length) { $('books').innerHTML = '<p class="empty">No stories yet. Make one tonight.</p>'; return; }
-    $('books').replaceChildren(...saved.map((s, i) => {
-      const row = document.createElement('div'); row.className = 'saved-row'; row.setAttribute('role', 'listitem');
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'book'; b.style.setProperty('--i', i);
-      b.innerHTML = cover(s.choices) + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
-      b.querySelector('strong').textContent = s.title;
-      b.querySelector('.when').textContent = `${VOICES[s.choices?.voice] || 'Someone'} · ${new Date(s.created).toLocaleDateString('en-IE', {day: 'numeric', month: 'short'})}`;
-      const btns = document.createElement('span'); btns.className = 'book-actions';
-      const archiveBtn = document.createElement('button'); archiveBtn.type = 'button'; archiveBtn.className = 'pill small'; archiveBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-archive"/></svg>';
-      archiveBtn.title = 'Move to Archive';
-      archiveBtn.addEventListener('click', async (ev) => {
-        ev.stopPropagation();
-        try {
-          await request(`/api/story/${s.id}/archive`, {method: 'POST'});
-          renderShelf(); renderArchive();
-        } catch (err) { $('shelf-status').textContent = err.message; }
-      });
-      btns.append(archiveBtn); row.append(btns);
-      b.addEventListener('click', async () => {
-        history.length = 0;
-        if (!s.ready) {
-          const token = ++session;
-          try { const value = await request(`/api/story/${s.id}`); if (token === session) { openStory(value, true); poll(); } }
-          catch (error) { if (token === session) $('shelf-status').textContent = error.message; }
-          return;
-        }
-        // shortcut: start published audio on the tap, then fetch text for Safari playback permissions.
-        const first = s.audio?.[0] || `/stories/${s.id}/p01.wav`;
-        openStory({...s, paragraphs: [], audio: [first], playlist: [first]}, true);
-        poll();
-      });
-      row.append(b); return row;
-    }));
-  } catch { $('shelf-status').textContent = 'Saved stories could not be loaded. Please try again.'; }
+let shelfKey = '', archiveKey = '', favoritesOnly = false;
+function savedRow(s, i) {
+  const status = $('shelf-status');
+  const row = document.createElement('div'); row.className = 'saved-row'; row.setAttribute('role', 'listitem');
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'book'; b.style.setProperty('--i', i);
+  b.innerHTML = cover(s.choices) + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
+  b.querySelector('strong').textContent = s.title;
+  b.querySelector('.when').textContent = `${VOICES[s.choices?.voice] || 'Someone'} · ${new Date(s.created).toLocaleDateString('en-IE', {day: 'numeric', month: 'short'})}`;
+  const btns = document.createElement('span'); btns.className = 'book-actions';
+  const archiveBtn = document.createElement('button'); archiveBtn.type = 'button'; archiveBtn.className = 'pill small'; archiveBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-archive"/></svg>';
+  archiveBtn.title = 'Move to Archive';
+  archiveBtn.addEventListener('click', async (ev) => {
+    ev.stopPropagation();
+    try {
+      await request(`/api/story/${s.id}/archive`, {method: 'POST'});
+      renderShelf(); renderArchive();
+    } catch (err) { status.textContent = err.message; }
+  });
+  btns.append(heartButton(s, status), archiveBtn); row.append(btns);
+  b.addEventListener('click', async () => {
+    history.length = 0;
+    if (!s.ready) {
+      const token = ++session;
+      try { const value = await request(`/api/story/${s.id}`); if (token === session) { openStory(value, true); poll(); } }
+      catch (error) { if (token === session) status.textContent = error.message; }
+      return;
+    }
+    // shortcut: start published audio on the tap, then fetch text for Safari playback permissions.
+    const first = s.audio?.[0] || `/stories/${s.id}/p01.wav`;
+    openStory({...s, paragraphs: [], audio: [first], playlist: [first]}, true);
+    poll();
+  });
+  row.append(b); return row;
 }
 function classicCover() {
   return '<svg class="cover" viewBox="200 40 600 380" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect x="0" y="-600" width="1000" height="1020" fill="url(#g-night)"/><circle cx="500" cy="120" r="40" fill="#f4ecd2"/><circle cx="486" cy="110" r="7" fill="#e6d9b0"/><circle cx="512" cy="130" r="9" fill="#e6d9b0"/><g fill="#f4ecd2"><circle cx="300" cy="90" r="2.4"/><circle cx="420" cy="50" r="2"/><circle cx="600" cy="70" r="2.6"/><circle cx="700" cy="130" r="2"/><circle cx="240" cy="180" r="2"/><circle cx="760" cy="200" r="2.4"/></g></svg>';
+}
+function classicRow(s, i, status) {
+  const row = document.createElement('div'); row.className = 'saved-row'; row.setAttribute('role', 'listitem');
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'book'; b.style.setProperty('--i', i);
+  b.innerHTML = classicCover() + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
+  b.querySelector('strong').textContent = s.title;
+  b.querySelector('.when').textContent = s.source;
+  b.addEventListener('click', async () => {
+    history.length = 0;
+    const token = ++session;
+    try { const value = await request(`/api/story/${s.id}`); if (token === session) openStory(value, true); }
+    catch (error) { if (token === session) status.textContent = error.message; }
+  });
+  const btns = document.createElement('span'); btns.className = 'book-actions'; btns.append(heartButton(s, status));
+  row.append(btns, b); return row;
+}
+async function renderShelf() {
+  try {
+    let saved = await request('/api/stories');
+    if (favoritesOnly) saved = [...saved, ...await request('/api/classics')].filter(s => s.favorite).sort((a, b) => b.created.localeCompare(a.created));
+    const key = JSON.stringify([favoritesOnly, saved]);
+    if (key === shelfKey) return;
+    shelfKey = key;
+    $('shelf-status').textContent = '';
+    if (!saved.length) { $('books').innerHTML = favoritesOnly ? '<p class="empty">Tap the heart on a story to keep it here.</p>' : '<p class="empty">No stories yet. Make one tonight.</p>'; return; }
+    $('books').replaceChildren(...saved.map((s, i) => s.classic ? classicRow(s, i, $('shelf-status')) : savedRow(s, i)));
+  } catch { $('shelf-status').textContent = 'Saved stories could not be loaded. Please try again.'; }
 }
 async function renderClassics() {
   try {
     const classics = await request('/api/classics');
     $('classics-status').textContent = '';
-    $('classics-books').replaceChildren(...classics.map((s, i) => {
-      const row = document.createElement('div'); row.className = 'saved-row'; row.setAttribute('role', 'listitem');
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'book'; b.style.setProperty('--i', i);
-      b.innerHTML = classicCover() + '<span class="meta"><strong></strong><span class="when"></span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></span>';
-      b.querySelector('strong').textContent = s.title;
-      b.querySelector('.when').textContent = s.source;
-      b.addEventListener('click', async () => {
-        history.length = 0;
-        const token = ++session;
-        try { const value = await request(`/api/story/${s.id}`); if (token === session) openStory(value, true); }
-        catch (error) { if (token === session) $('classics-status').textContent = error.message; }
-      });
-      row.append(b); return row;
-    }));
+    $('classics-books').replaceChildren(...classics.map((s, i) => classicRow(s, i, $('classics-status'))));
   } catch { $('classics-status').textContent = 'The old tales could not be loaded. Please try again.'; }
 }
+function setFilter(on) {
+  favoritesOnly = on;
+  $('filter-all').setAttribute('aria-pressed', String(!on)); $('filter-fav').setAttribute('aria-pressed', String(on));
+  renderShelf();
+}
+$('filter-all').addEventListener('click', () => setFilter(false));
+$('filter-fav').addEventListener('click', () => setFilter(true));
 async function renderArchive() {
   try {
     const archived = await request('/api/stories?archived=true');
@@ -1470,7 +1530,7 @@ async function poll() {
     story = updated;
     for (const url of [story.continuous, ...(story.playlist || []), ...(story.audio || [])]) if (url) badAudio.delete(url); // a fresh snapshot only lists files that exist
     if (story.audio_error) { wantsPlay = false; waiting = false; audio.pause(); playerLabel(); wake(); say(story.audio_error); }
-    if (needsText) render(); else highlight();
+    if (needsText) render(); else { highlight(); updateSkip(); }
     if (!continuous && story.continuous && !badAudio.has(story.continuous) && story.paragraph_starts?.length && !story.audio_error && paragraph < story.total) {
       const position = story.paragraph_starts[paragraph] + (waiting ? 0 : audio.currentTime);
       const handoverSession = ++session;
@@ -1526,6 +1586,7 @@ $('to-classics').addEventListener('click', () => goCollection('classics'));
 $('classics-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
 $('to-archive').addEventListener('click', () => goCollection('archive'));
 $('archive-back').addEventListener('click', () => { session++; show('choose'); updateScene(); sceneTo($('slot-choose')); });
+$('fav').addEventListener('click', () => toggleFavorite(story.id, $('status'), $('fav')));
 $('prev-story').addEventListener('click', previousStory);
 $('next-story').addEventListener('click', nextStory);
 $('prev-paragraph').addEventListener('click', previousParagraph);

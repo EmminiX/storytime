@@ -602,6 +602,42 @@ class StorytimeCheck(unittest.TestCase):
             classics2 = client.get('/api/classics').json()
             self.assertGreaterEqual(len(classics2), 1, 'Classic remains after failed delete')
 
+    def test_favorites_toggle_and_flags(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        classic_id = server.classics.CLASSICS[0]['id']
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            folder = Path(directory) / '20261014-010101-gentle-swim'; folder.mkdir()
+            server.save_story({'id': folder.name, 'choices': server.Choices(who='Robin').model_dump(),
+                               'title': 'A gentle swim', 'paragraphs': ['Good night.'] * 4, 'number': 1,
+                               'created': '2026-10-14T01:01:01+01:00', 'next_story_id': None})
+            (folder / 'p01.wav').write_bytes(wav_bytes())
+            self.assertEqual(client.get('/api/favorites').json(), [])
+            self.assertFalse(client.get('/api/stories').json()[0]['favorite'])
+            self.assertFalse(any(c['favorite'] for c in client.get('/api/classics').json()))
+            r = client.post(f'/api/favorites/{folder.name}')
+            self.assertEqual(r.json(), {'id': folder.name, 'favorite': True})
+            self.assertEqual(client.post(f'/api/favorites/{classic_id}').json()['favorite'], True)
+            self.assertEqual(client.get('/api/favorites').json(), [folder.name, classic_id])
+            self.assertTrue(client.get('/api/stories').json()[0]['favorite'])
+            self.assertEqual([c['id'] for c in client.get('/api/classics').json() if c['favorite']], [classic_id])
+            self.assertTrue(client.get(f'/api/story/{folder.name}').json()['favorite'])
+            self.assertEqual(client.post(f'/api/favorites/{folder.name}').json(), {'id': folder.name, 'favorite': False})
+            self.assertEqual(client.get('/api/favorites').json(), [classic_id])
+            self.assertFalse(client.get('/api/stories').json()[0]['favorite'])
+            self.assertFalse((Path(directory) / 'favorites.json.tmp').exists())
+
+    def test_favorites_reject_unknown_and_traversal_ids(self):
+        import server
+        from fastapi.testclient import TestClient
+        client = TestClient(server.app)
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)):
+            for bad in ('20261014-010101-missing', 'classic-no-such-tale', '..', 'classic-..', '%2e%2e%2fsecret', '..%2f..%2fetc%2fpasswd'):
+                with self.subTest(story_id=bad):
+                    self.assertEqual(client.post(f'/api/favorites/{bad}').status_code, 404)
+            self.assertFalse((Path(directory) / 'favorites.json').exists())
+
 
 class PassResult(unittest.TextTestResult):
     def addSuccess(self, test):
