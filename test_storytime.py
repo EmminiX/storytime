@@ -819,15 +819,82 @@ class StorytimeCheck(unittest.TestCase):
         with patch.object(server, 'eleven_has_room', return_value=True) as room:
             self.assertEqual(server.story_reader(nana, 1, ['abc', 'de']), 'el_nana')
             room.assert_called_once_with(5)
+            self.assertTrue(server.eleven_lock.locked(), 'An ElevenLabs story holds the lock until it is read')
+            server.eleven_lock.release()
             self.assertEqual(server.story_reader(nana, 2, ['abc']), 'bf_emma')
             self.assertEqual(server.story_reader(server.Choices(voice='el_grandad'), 3, ['abc']), 'bm_george')
             self.assertEqual(server.story_reader(server.Choices(voice='bm_george'), 1, ['abc']), 'bm_george')
         with patch.object(server, 'eleven_has_room', return_value=False):
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
+        self.assertFalse(server.eleven_lock.locked(), 'A twin story frees the lock at once')
         server.CONFIG.elevenlabs_voices = {}
         with patch.object(server, 'eleven_has_room') as room:
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
             room.assert_not_called()
+
+    def eleven_account(self, charged):
+        """The account's subscription reply: 20,000 of 33,136 used, plus what StoryTime has been charged."""
+        def reply(request, timeout):
+            self.assertEqual(request.full_url, 'https://api.elevenlabs.io/v1/user/subscription')
+            response = Mock()
+            body = {'character_limit': 33136, 'character_count': 20000 + sum(charged)}
+            response.__enter__ = Mock(return_value=io.StringIO(json.dumps(body)))
+            response.__exit__ = Mock(return_value=False)
+            return response
+        return reply
+
+    def test_under_the_reserve_the_mistral_twin_reads(self):
+        import server
+        # 4 x 800 = 3,200 characters, but only 3,136 stay above the 10,000 reserve.
+        for voice, twin in (('el_nana', 'bf_emma'), ('el_grandad', 'bm_george')):
+            spoken = []
+            with self.subTest(voice=voice), tempfile.TemporaryDirectory() as directory, \
+                    patch.object(server, 'STORIES', Path(directory)), patch.object(server, 'api_key', return_value='test-only'), \
+                    patch.object(server, 'generate_text', return_value=('A gentle swim', ['x' * 800] * 4, None, None)), \
+                    patch.object(server.urllib.request, 'urlopen', side_effect=self.eleven_account([])) as send, \
+                    patch.object(server, 'eleven_speech', side_effect=AssertionError('no ElevenLabs over the reserve')), \
+                    patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: spoken.append(voice) or path.write_bytes(wav_bytes())), \
+                    patch.object(server, 'start_chain'):
+                story = server.make_story(server.Choices(voice=voice))
+                server.audio_threads[story['id']].join(5)
+                self.assertEqual(story['reader'], twin)
+                self.assertEqual(spoken, [twin] * 4)
+                send.assert_called_once()
+                self.assertFalse(server.eleven_lock.locked())
+
+    def test_a_second_elevenlabs_story_waits_and_reads_the_quota_again(self):
+        import server
+        # 4 x 700 = 2,800 characters: the first story fits above the reserve, a second one after it does not.
+        charged, reading = [], threading.Event()
+        def speak(text, voice, path, previous=''):
+            charged.append(len(text))
+            if len(charged) > 1:
+                self.assertTrue(reading.wait(5))  # the first story is still being read
+            path.write_bytes(wav_bytes())
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'api_key', return_value='test-only'), \
+                patch.object(server, 'generate_text', return_value=('A gentle swim', ['x' * 700] * 4, None, None)), \
+                patch.object(server.urllib.request, 'urlopen', side_effect=self.eleven_account(charged)) as send, \
+                patch.object(server, 'eleven_speech', side_effect=speak), \
+                patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())), \
+                patch.object(server, 'start_chain'):
+            first = server.make_story(server.Choices(voice='el_nana'))
+            self.assertEqual(first['reader'], 'el_nana')
+            second = {}
+            waiting = threading.Thread(target=lambda: second.update(server.make_story(server.Choices(voice='el_nana'))))
+            waiting.start()
+            waiting.join(0.5)
+            self.assertTrue(waiting.is_alive(), 'The second story waits while the first is read')
+            self.assertEqual(send.call_count, 1, 'and has not read the quota yet')
+            reading.set()
+            server.audio_threads[first['id']].join(5)
+            waiting.join(5)
+            self.assertFalse(waiting.is_alive())
+            self.assertEqual(sum(charged), 2800)
+            self.assertEqual(send.call_count, 2, 'The second story read the quota again after the first')
+            self.assertEqual(second['reader'], 'bf_emma', '33,136 - 22,800 - 2,800 is under the reserve')
+            server.audio_threads[second['id']].join(5)
+            self.assertFalse(server.eleven_lock.locked())
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server
