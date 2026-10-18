@@ -694,6 +694,12 @@ class StorytimeCheck(unittest.TestCase):
         bare = good.replace('\n\n---\n', '\n\n') + 'Sleep tight, little one!\n'
         text, word, quiz = server.split_extras(bare)
         self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        # Round 3: a rule inside the block, and a malformed first question with no rule: all of it goes.
+        inner = story + '\n\n---\nWORD: patient = calm\n---\nQ: Who was patient? | The otter | The owl | The fox\nQ: Where did they swim? | Lake | Sky | Cave\nQ: How did it end? | Asleep | Dancing | Shouting'
+        text, word, quiz = server.split_extras(inner)
+        self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        broken = story + '\nWORD: patient = calm\nQ: Who? | The otter | The owl\nQ: Where? | Lake | Sky | Cave\nQ: End? | Asleep | Dancing | Shouting\n'
+        self.assertEqual(server.split_extras(broken), (story, {'word': 'patient', 'meaning': 'calm'}, None))
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))
@@ -797,13 +803,13 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
             room.assert_not_called()
 
-    def eleven_run(self, paragraphs, counter_follows, fail_first=False):
+    def eleven_run(self, paragraphs, counter_follows, fail_first=False, counter=None):
         """Read paragraphs as Nana with a mocked account: 20,000 of 33,136 used, so 3,136 above the reserve."""
         import server
         charged = []
         def reply(request, timeout):
             response = Mock()
-            used = 20000 + (sum(charged) if counter_follows else 0)
+            used = counter(len(charged)) if counter else 20000 + (sum(charged) if counter_follows else 0)
             response.__enter__ = Mock(return_value=io.StringIO(json.dumps({'character_limit': 33136, 'character_count': used})))
             response.__exit__ = Mock(return_value=False)
             return response
@@ -814,7 +820,7 @@ class StorytimeCheck(unittest.TestCase):
             path.write_bytes(wav_bytes())
         with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only'), \
                 patch.object(server.urllib.request, 'urlopen', side_effect=reply), \
-                patch.object(server, 'eleven_booked', {'baseline': 0, 'sent': 0, 'at': float('-inf')}), \
+                patch.object(server, 'eleven_booked', {'last': None, 'outstanding': 0, 'at': float('-inf')}), \
                 patch.object(server, 'eleven_speech', side_effect=speak), \
                 patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())):
             engines = [server.voice_clip(text, 'el_nana', Path(directory) / f'{n}.wav') for n, text in enumerate(paragraphs)]
@@ -833,6 +839,11 @@ class StorytimeCheck(unittest.TestCase):
         engines, charged = self.eleven_run(['x' * 750] * 4, counter_follows=True)
         self.assertEqual(engines, ['ElevenLabs'] * 4)
         self.assertEqual(charged, 3000)
+        # Round 3: another app's 1,000 characters land with the first paragraph, then the counter lags.
+        # That extra rise is never credit: the third paragraph would take the account below the reserve.
+        engines, charged = self.eleven_run(['x' * 1000] * 3, counter_follows=False, counter=lambda done: 20000 if done == 0 else 22000)
+        self.assertEqual(engines, ['ElevenLabs', 'ElevenLabs', 'Mistral'])
+        self.assertLessEqual(charged + 1000, 3136, 'StoryTime plus the other app stay above the reserve')
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server

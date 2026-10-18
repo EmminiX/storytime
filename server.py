@@ -46,11 +46,11 @@ store_lock = threading.RLock()
 audio_threads = {}
 chain_threads = {}
 # Characters booked for ElevenLabs that the account counter may not show yet, because it can lag
-# (MAY-1276 review). `baseline` is the counter before the first booking; whatever it has risen since
-# counts as shown. After ELEVEN_LAG quiet seconds the counter has surely caught up and the book resets.
-# ponytail: other use of the same account in that window also counts as shown; a few minutes, few characters.
+# (MAY-1276 review). Each rise of the counter since the last reading settles that much of the
+# outstanding bookings and no more: a rise beyond them is other use of the account, never credit.
+# After ELEVEN_LAG quiet seconds the counter has surely caught up and nothing is outstanding.
 eleven_lock = threading.Lock()
-eleven_booked = {'baseline': 0, 'sent': 0, 'at': float('-inf')}
+eleven_booked = {'last': None, 'outstanding': 0, 'at': float('-inf')}
 ELEVEN_LAG = 600
 log = logging.getLogger('storytime')
 
@@ -191,30 +191,25 @@ def parse_story(text):
 
 
 EXTRA_KEY = re.compile(r'\s*(?:WORD|Q)\s*:', re.IGNORECASE)
+RULE = re.compile(r'\s*-{3,}\s*')
 EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\s*', re.IGNORECASE)
 
 
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
-    Everything from the last --- line that a WORD or Q line follows goes, closing rules and chatter
-    included. Without one, the final group of well-formed WORD and Q lines goes (with anything after
-    it) when it holds two lines or ends the text, so a story paragraph that starts with Q: stays.
+    The section starts at the run of WORD, Q, --- and blank lines that holds the last well-formed
+    WORD or Q line (or a --- line followed by one); it goes with everything after it, malformed lines,
+    extra rules and chatter included. A story paragraph that merely starts with Q: or WORD: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
     following = lambda i: next((line for line in lines[i + 1:] if line.strip()), '')
-    rules = [i for i, line in enumerate(lines) if re.fullmatch(r'\s*-{3,}\s*', line) and EXTRA_KEY.match(following(i))]
-    marks = [i for i, line in enumerate(lines) if EXTRA_LINE.fullmatch(line)]
+    anchors = [i for i, line in enumerate(lines)
+               if EXTRA_LINE.fullmatch(line) or (RULE.fullmatch(line) and EXTRA_KEY.match(following(i)))]
     end = len(lines)
-    if rules:
-        end = rules[-1]
-    elif marks:
-        start = marks[-1]
-        for i in reversed(marks[:-1]):
-            if any(line.strip() for line in lines[i + 1:start]):
-                break
-            start = i
-        if len([i for i in marks if i >= start]) >= 2 or not following(marks[-1]):
-            end = start
+    if anchors:
+        end = anchors[-1]
+        while end and (not lines[end - 1].strip() or RULE.fullmatch(lines[end - 1]) or EXTRA_KEY.match(lines[end - 1])):
+            end -= 1
     story = '\n'.join(lines[:end]).rstrip()
     word, quiz = None, []
     for line in lines[end:]:
@@ -482,12 +477,13 @@ def eleven_has_room(characters, book=False):
         return False
     with eleven_lock:
         if time.monotonic() - eleven_booked['at'] > ELEVEN_LAG:
-            eleven_booked.update(baseline=used, sent=0)
-        unseen = max(0, eleven_booked['sent'] - (used - eleven_booked['baseline']))
-        if limit - used - unseen - CONFIG.elevenlabs_reserve_chars < characters:
+            eleven_booked['outstanding'] = 0
+        rise = max(0, used - (eleven_booked['last'] if eleven_booked['last'] is not None else used))
+        eleven_booked.update(last=used, outstanding=max(0, eleven_booked['outstanding'] - rise))
+        if limit - used - eleven_booked['outstanding'] - CONFIG.elevenlabs_reserve_chars < characters:
             return False
         if book:
-            eleven_booked.update(sent=eleven_booked['sent'] + characters, at=time.monotonic())
+            eleven_booked.update(outstanding=eleven_booked['outstanding'] + characters, at=time.monotonic())
         return True
 
 
