@@ -1366,7 +1366,7 @@ function render() {
   const reader = readerOf(story), chosen = story.choices?.voice;
   let line = `${VOICES[reader] || 'Someone'} reads this one.`;
   // An ElevenLabs reader reads story 1 only, and only inside the month's quota; say so instead of switching quietly.
-  if (chosen && chosen !== reader && VOICES[chosen]) line += (story.number || 1) > 1 ? ` ${VOICES[chosen]} read the first story.` : ` ${VOICES[chosen]} is resting tonight.`;
+  if (chosen && chosen !== reader && VOICES[chosen] && (story.number || 1) === 1) line += ` ${VOICES[chosen]} is resting tonight.`;
   $('reader').textContent = line;
   highlight(); ring(0); mediaMetadata(); updateSkip(); updateFav();
 }

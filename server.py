@@ -192,6 +192,7 @@ def parse_story(text):
 
 EXTRA_KEY = re.compile(r'\s*(?:WORD|Q)\s*:', re.IGNORECASE)
 RULE = re.compile(r'\s*-{3,}\s*')
+EXTRA_SHAPED = re.compile(r'\s*(?:WORD\s*:[^=]+=.*|Q\s*:[^|]*\|.*)', re.IGNORECASE)
 EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\s*', re.IGNORECASE)
 
 
@@ -199,8 +200,8 @@ def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
     The section starts at the first --- line followed by a WORD or Q line. Without one, it starts at the
     first WORD or Q line of the group of lines (between blank lines) that holds the last well-formed
-    one, and takes in earlier groups that open with a well-formed line, stepping over one stray group
-    between two of them. Everything from the start goes: malformed lines, stray lines, extra rules and
+    one, and takes in earlier groups that open with a quiz-shaped line (WORD with =, Q with |, even if
+    malformed), stepping over one stray group between two of them. Everything from the start goes: malformed lines, stray lines, extra rules and
     chatter. A story paragraph that merely starts with Q: or WORD: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
@@ -214,9 +215,9 @@ def split_extras(text):
         groups = [(m.start(), m.end()) for m in re.finditer(r'1+', ''.join('1' if line.strip() else '0' for line in lines))]
         here = next(g for g, (first, stop) in enumerate(groups) if first <= anchors[-1] < stop)
         end = next(i for i in range(groups[here][0], anchors[-1] + 1) if EXTRA_KEY.match(lines[i]))
-        formed = lambda g: g >= 0 and bool(EXTRA_LINE.fullmatch(lines[groups[g][0]]))
+        formed = lambda g: g >= 0 and bool(EXTRA_SHAPED.fullmatch(lines[groups[g][0]]))
         g = here - 1
-        while end == groups[g + 1][0] and g >= 0:  # an earlier group joins when it opens with a well-formed line,
+        while end == groups[g + 1][0] and g >= 0:  # an earlier group joins when it opens with a WORD = or Q | line,
             step = 1 if formed(g) else 2 if formed(g - 1) else 0  # or a stray group sits between two that do
             if not step:
                 break

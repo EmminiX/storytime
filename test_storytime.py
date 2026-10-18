@@ -717,6 +717,10 @@ class StorytimeCheck(unittest.TestCase):
         for case in (spaced, alone):
             text, word, quiz = server.split_extras(case)
             self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        # Round 6: a WORD line, two malformed questions and one good one, in separate groups, all go.
+        malformed = story + '\n\nWORD: patient = able to wait calmly\n\nQ: Who waited? | Otter | Owl\n\nQ: Where were they? | Lake | Sky\n\nQ: How did it end? | Asleep | Dancing | Shouting'
+        self.assertEqual(server.split_extras(malformed), (story, {'word': 'patient', 'meaning': 'able to wait calmly'}, None))
+        self.assertEqual(server.parse_story(server.split_extras(malformed)[0])[1][-1], 'Home asleep.', 'None of it is read aloud')
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))
