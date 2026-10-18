@@ -197,18 +197,24 @@ EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\
 
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
-    The section starts at the run of WORD, Q, --- and blank lines that holds the last well-formed
-    WORD or Q line (or a --- line followed by one); it goes with everything after it, malformed lines,
-    extra rules and chatter included. A story paragraph that merely starts with Q: or WORD: stays.
+    The section starts at the first --- line followed by a WORD or Q line. Without one, it starts at the
+    first WORD or Q line of the group of lines that holds the last well-formed one. Everything from there
+    goes: malformed lines, stray lines, extra rules and chatter. A story paragraph that merely starts
+    with Q: or WORD: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
     following = lambda i: next((line for line in lines[i + 1:] if line.strip()), '')
-    anchors = [i for i, line in enumerate(lines)
-               if EXTRA_LINE.fullmatch(line) or (RULE.fullmatch(line) and EXTRA_KEY.match(following(i)))]
+    rules = [i for i, line in enumerate(lines) if RULE.fullmatch(line) and EXTRA_KEY.match(following(i))]
+    anchors = [i for i, line in enumerate(lines) if EXTRA_LINE.fullmatch(line)]
     end = len(lines)
-    if anchors:
+    if rules:
+        end = rules[0]
+    elif anchors:
         end = anchors[-1]
-        while end and (not lines[end - 1].strip() or RULE.fullmatch(lines[end - 1]) or EXTRA_KEY.match(lines[end - 1])):
+        while end and lines[end - 1].strip():  # back through the anchor's own group of lines
+            end -= 1
+        end = next(i for i in range(end, anchors[-1] + 1) if EXTRA_KEY.match(lines[i]))
+        while end and (not lines[end - 1].strip() or EXTRA_KEY.match(lines[end - 1])):
             end -= 1
     story = '\n'.join(lines[:end]).rstrip()
     word, quiz = None, []
@@ -466,20 +472,22 @@ def eleven_has_room(characters, book=False):
     """True when this month's ElevenLabs quota covers the characters and still keeps the reserve for other
     uses. The plan's own quota is the ceiling, so there is never a surprise bill. With book, the characters
     are booked before the request goes out and stay booked even if it fails, since it may still be charged."""
-    try:
-        request = urllib.request.Request('https://api.elevenlabs.io/v1/user/subscription',
-                                        headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
-        with urllib.request.urlopen(request, timeout=10) as response:
-            quota = json.load(response)
-        used, limit = int(quota['character_count']), int(quota['character_limit'])
-    except Exception as error:
-        log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
-        return False
+    # The reading and the settling share one lock, so an older reading can never land after a newer one.
     with eleven_lock:
+        try:
+            request = urllib.request.Request('https://api.elevenlabs.io/v1/user/subscription',
+                                            headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
+            with urllib.request.urlopen(request, timeout=10) as response:
+                quota = json.load(response)
+            used, limit = int(quota['character_count']), int(quota['character_limit'])
+        except Exception as error:
+            log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
+            return False
         if time.monotonic() - eleven_booked['at'] > ELEVEN_LAG:
-            eleven_booked['outstanding'] = 0
-        rise = max(0, used - (eleven_booked['last'] if eleven_booked['last'] is not None else used))
-        eleven_booked.update(last=used, outstanding=max(0, eleven_booked['outstanding'] - rise))
+            eleven_booked.update(last=None, outstanding=0)
+        last = used if eleven_booked['last'] is None else eleven_booked['last']
+        # The baseline only moves up: a lower reading settles nothing (a new billing month clears after ELEVEN_LAG).
+        eleven_booked.update(last=max(last, used), outstanding=max(0, eleven_booked['outstanding'] - max(0, used - last)))
         if limit - used - eleven_booked['outstanding'] - CONFIG.elevenlabs_reserve_chars < characters:
             return False
         if book:
