@@ -721,6 +721,9 @@ class StorytimeCheck(unittest.TestCase):
         malformed = story + '\n\nWORD: patient = able to wait calmly\n\nQ: Who waited? | Otter | Owl\n\nQ: Where were they? | Lake | Sky\n\nQ: How did it end? | Asleep | Dancing | Shouting'
         self.assertEqual(server.split_extras(malformed), (story, {'word': 'patient', 'meaning': 'able to wait calmly'}, None))
         self.assertEqual(server.parse_story(server.split_extras(malformed)[0])[1][-1], 'Home asleep.', 'None of it is read aloud')
+        # Round 7: a block in which no line is valid still never reaches the voice.
+        hopeless = story + '\n\nWORD: patient = \nQ: Who waited? | Otter | Owl\nQ: Where were they? | Lake'
+        self.assertEqual(server.split_extras(hopeless), (story, None, None))
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))

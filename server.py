@@ -193,21 +193,21 @@ def parse_story(text):
 EXTRA_KEY = re.compile(r'\s*(?:WORD|Q)\s*:', re.IGNORECASE)
 RULE = re.compile(r'\s*-{3,}\s*')
 EXTRA_SHAPED = re.compile(r'\s*(?:WORD\s*:[^=]+=.*|Q\s*:[^|]*\|.*)', re.IGNORECASE)
-EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\s*', re.IGNORECASE)
 
 
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
-    The section starts at the first --- line followed by a WORD or Q line. Without one, it starts at the
-    first WORD or Q line of the group of lines (between blank lines) that holds the last well-formed
-    one, and takes in earlier groups that open with a quiz-shaped line (WORD with =, Q with |, even if
-    malformed), stepping over one stray group between two of them. Everything from the start goes: malformed lines, stray lines, extra rules and
-    chatter. A story paragraph that merely starts with Q: or WORD: stays.
+    The section starts at the first --- line followed by a WORD or Q line. Without one, it starts at
+    the first WORD or Q line of the group of lines (between blank lines) that holds the last
+    quiz-shaped line (WORD with =, Q with |, even if malformed), and takes in earlier groups that open
+    with a quiz-shaped line, stepping over one stray group between two of them. Everything from the
+    start goes: malformed lines, stray lines, extra rules and chatter. A story paragraph that merely
+    starts with Q: or WORD: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
     following = lambda i: next((line for line in lines[i + 1:] if line.strip()), '')
     rules = [i for i, line in enumerate(lines) if RULE.fullmatch(line) and EXTRA_KEY.match(following(i))]
-    anchors = [i for i, line in enumerate(lines) if EXTRA_LINE.fullmatch(line)]
+    anchors = [i for i, line in enumerate(lines) if EXTRA_SHAPED.fullmatch(line)]
     end = len(lines)
     if rules:
         end = rules[0]
