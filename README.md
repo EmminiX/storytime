@@ -11,7 +11,25 @@ Storytime is a small bedtime story app for a household. Choose a listener, world
 
 A paper-cut night scene is made with inline SVG and CSS, with no image files for the scene. A Motion switch keeps the scene still when you prefer, and the app follows reduced-motion settings.
 
-The Classics shelf holds nine old tales (Puss in Boots, Pinocchio, Hansel and Gretel, and six more), retold gently in the public domain, separate from the made stories and played by the same player. The classics ship with pre-rendered audio in `classics_audio/` (one MP3 per tale, read by the Kokoro voice `bf_emma` and rendered once on the Mac with `tools/render_classics.py`), so they play without any runtime or paid voice. A classic whose MP3 files are missing falls back to the local voice only and never calls the paid Mistral voice.
+The app is night themed only: it is used at bedtime in a dark room. The Lexend font is served by the app itself (`static/fonts/`, SIL Open Font License), so opening the page makes no request outside the home.
+
+The top bar opens Favourites, Stories (with the Archive), Classics and Play and learn.
+
+The Classics shelf holds seventeen old tales (Puss in Boots, Pinocchio, Fionn and the Salmon of Knowledge, Stone Soup, and thirteen more), retold gently in the public domain, separate from the made stories and played by the same player. Each tale names its reader. The classics ship with pre-rendered audio in `classics_audio/` (one MP3 per tale, rendered once on the Mac with `tools/render_classics.py`), so they play without any runtime or paid voice. The first nine are read by the local Kokoro voice; of the eight added in October 2026, Emma and George read six with Mistral, and Nana and Grandad read one each with ElevenLabs. A classic whose MP3 files are missing falls back to the local voice only and never calls a paid voice.
+
+## Play and learn
+
+Five calm activities for a child of about seven, none of which sends anything to a model:
+
+| Activity | What the child does | What it builds | Time |
+|---|---|---|---|
+| Word of the night | Learns one word from tonight's story (or a classic), then hears it marked in the text as the reader reaches it | Vocabulary, listening | 1 minute |
+| Did you hear? | Answers three questions about a story, with gentle replies and no score | Listening, recall | 2 minutes |
+| Choose the path | Reads a short branching tale and picks what happens on each page; every ending is calm | Reading, cause and effect | 5 minutes |
+| Story pairs | Turns cards to match each picture with its word; no timer | Memory, word reading | 3 minutes |
+| Draw your hero | Draws with a finger in six soft colours; the last six drawings stay in the browser on that device | Imagination | 5 minutes |
+
+The words and questions for the classics are hand-written in `classics.py`. A newly made story asks the story model for one word and three questions after the story text; the server checks them (the word must be in the story, each question needs three different short answers) and removes them before the voice step. A story whose block is missing or wrong simply has no word or quiz.
 
 ## Security: home use only
 
@@ -19,14 +37,14 @@ The Classics shelf holds nine old tales (Puss in Boots, Pinocchio, Hansel and Gr
 
 Use a private network or a VPN such as Tailscale. The example binds only to `127.0.0.1`, so other devices cannot reach it until you change the host. A VPN does not add a login to this app. Only allow people you trust to reach the server.
 
-The child's first name, age, optional hero name, and story choices are sent to Anthropic. The story text, including names that appear in it, is sent to Mistral for speech. Optional local flavour is also sent to Anthropic. Use made-up names if you prefer. Saved stories contain those choices and generated text.
+The child's first name, age, optional hero name, and story choices are sent to Anthropic. The story text, including names that appear in it, is sent to Mistral for speech, or to ElevenLabs when Nana or Grandad reads. Optional local flavour is also sent to Anthropic. Use made-up names if you prefer. Saved stories contain those choices and generated text. The Play and learn activities send nothing anywhere, and drawings stay in the browser of the device they were drawn on.
 
 ## How it works
 
 ```mermaid
 flowchart TD
     A[Choose tiles] --> B[Claude Haiku writes 3 linked stories]
-    B --> C[Mistral voice per paragraph]
+    B --> C[Mistral voice per sentence, or ElevenLabs for story 1]
     C --> D[One audio file per story]
     D --> E[iPad plays]
     E --> F[Lock-screen next / previous story]
@@ -40,10 +58,11 @@ Media Session connects play, pause, and next/previous story to browser and lock-
 
 - FastAPI and Uvicorn, with Pydantic for input validation.
 - Claude Haiku 5.5 (`claude-haiku-5-5`) through the Anthropic API.
-- Mistral Voxtral TTS (`voxtral-mini-tts-2603`) for the main voice engine.
+- Mistral Voxtral TTS (`voxtral-mini-tts-2603`) for the main voice engine, one request per sentence.
+- ElevenLabs (`eleven_multilingual_v2`) for the Nana and Grandad readers, story 1 only.
 - Optional Kokoro fallback, supplied separately.
 - Plain HTML and JavaScript, with Media Session. There is no frontend build.
-- Python's standard library for provider requests, WAV assembly, storage, and offline tests. The page loads the Lexend font from Google Fonts and can use system fonts if it is unavailable.
+- Python's standard library for provider requests, WAV assembly, storage, and offline tests. The Lexend font ships in `static/fonts/`.
 
 ## Setup in 5 commands
 
@@ -57,11 +76,15 @@ cp config.example.json config.json
 cp .env.example .env
 ```
 
-Edit `.env` to add your own `ANTHROPIC_API_KEY` and `MISTRAL_API_KEY`. Alternatively, export them in your shell. Exported variables take precedence over `.env`. The parser accepts one `NAME=value` per line, optional `export`, quoted values, and comments. It does not expand shell commands or variable references. Only the two provider key names are loaded, from this project folder.
+Edit `.env` to add your own `ANTHROPIC_API_KEY` and `MISTRAL_API_KEY`, and `ELEVENLABS_API_KEY` if you want the Nana and Grandad readers. Alternatively, export them in your shell. Exported variables take precedence over `.env`. The parser accepts one `NAME=value` per line, optional `export`, quoted values, and comments. It does not expand shell commands or variable references. Only the three provider key names are loaded, from this project folder.
 
 Edit `config.json` with the listeners' first names and ages. The example uses Robin, 8, and Sam, 5. Names must be unique and cannot be `Both` or `Everyone`. Ages are whole numbers from 1 to 18. A group choice uses the youngest listener's age. A listener can also set `"picture": "girl"` or `"picture": "boy"` to show that figure on their tile; without it the neutral figures are used, given out by list position. `local_flavour` is optional setting text and defaults to empty.
 
-`mistral_voices` maps the two reader choices, `bf_emma` and `bm_george`, to Mistral voice IDs. The tiles label them Emma and George. Those labels identify reader slots, rather than Mistral's preset names. You can replace the IDs. `host` and `port` control the listener address. Restart the server after changing configuration. Without `config.json`, the app uses `config.example.json`.
+`mistral_voices` maps the two Mistral reader slots, `bf_emma` and `bm_george`, to Mistral voice IDs. `elevenlabs_voices` maps `el_nana` and `el_grandad` to ElevenLabs voice IDs; leave it out and those two tiles are hidden. `reader_names` holds the names the tiles show (default Emma, George, Nana and Grandad): rename a reader there and nowhere else. The slot keys stay the same, so saved stories keep working. You can replace the IDs.
+
+Mistral's speech API has no speed setting. The server sends one sentence per request, so each sentence gets its own full intonation, and joins them with `sentence_pause` seconds of silence (default 0.6). Raise it for a slower, calmer reading. Paragraphs are separated by 1.2 seconds.
+
+Nana and Grandad read only story 1 of a night, and only when the ElevenLabs plan has room: before story 1 the server reads the account's monthly character count and uses ElevenLabs only if the story fits while `elevenlabs_reserve_chars` (default 10,000) stays unused for other work on the same account. Otherwise, and for stories 2 and 3, Emma reads for Nana and George reads for Grandad, and the player says so. The plan's own quota is the ceiling, so there is no surprise bill. `host` and `port` control the listener address. Restart the server after changing configuration. Without `config.json`, the app uses `config.example.json`.
 
 Run the server:
 
@@ -71,7 +94,7 @@ Run the server:
 
 Open `http://127.0.0.1:8787` on that computer. Keep the terminal running, and use Ctrl+C to stop it. Run the offline checks with `.venv/bin/python test_storytime.py`.
 
-A browser check drives the paragraph skip in a real browser: `node browser_test.mjs`. It needs Node and Playwright (if Playwright is not installed next to the project, set `PLAYWRIGHT_MODULE` to the playwright module path). It starts the server on a free port, seeds one finished story, and presses next and previous paragraph on the player, so no provider keys may be set while it runs.
+A browser check drives the app in a real browser: `node browser_test.mjs`. It needs Node and Playwright (if Playwright is not installed next to the project, set `PLAYWRIGHT_MODULE` to the playwright module path). It starts the server on a free port, seeds finished stories, presses next and previous paragraph on the player, opens Favourites from the top bar, and completes one round of each Play and learn activity, so no provider keys may be set while it runs.
 
 ## Using an iPad on the home network
 
@@ -81,7 +104,7 @@ In iPad Safari, open `http://YOUR-COMPUTER-LAN-IP:8787`, using the server comput
 
 ## Optional local voice fallback
 
-The classics do not need this: their audio is pre-rendered (see `classics_audio/` and `tools/render_classics.py`, which needs `kokoro-onnx` and `ffmpeg` on the Mac only).
+The classics do not need this: their audio is pre-rendered (see `classics_audio/` and `tools/render_classics.py`, which needs `ffmpeg`, the provider keys for its readers, and `kokoro-onnx` only with `--kokoro`, on the Mac only).
 
 The author's fallback is Kokoro through a small local script, using the `kokoro-onnx` voices `bf_emma` and `bm_george`. That script and its model files are not included. Supply your own local script and install its dependencies separately if you want this fallback.
 
@@ -112,6 +135,7 @@ Pricing as of 14 October 2026, from [Anthropic](https://docs.anthropic.com/en/do
 | Text tokens (input) | Claude Haiku 5.5 $0.10/MTok | < $0.01 | < $0.01 | < $0.01 |
 | Text tokens (output) | Claude Haiku 5.5 $0.50/MTok | ~ $0.0005 | ~ $0.0010 | ~ $0.0017 |
 | Voice characters | Voxtral TTS $16/M chars (~5 chars/word) | ~ $0.05 | ~ $0.10 | ~ $0.16 |
+| Voice characters, Nana or Grandad (story 1) | ElevenLabs Starter, 33,136 chars a month included | ~ 3,000 chars of the monthly quota | ~ 6,000 | ~ 10,000 |
 | **One story total** | | **~ $0.05** | **~ $0.10** | **~ $0.16** |
 
 A new story starts a chain of up to three stories. Ten chains a day for 30 days, at the Short length:
