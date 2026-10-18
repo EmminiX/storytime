@@ -425,8 +425,9 @@ try {
     await page.waitForFunction(w => !document.querySelector('#play').hidden && !document.querySelector('#word-night').hidden &&
       [...document.querySelectorAll('#text mark.word')].some(m => m.textContent.toLowerCase() === w.toLowerCase()), word, { timeout: 10000 });
     await page.waitForFunction(() => /\/classics_audio\/.+\/story\.mp3$/.test(document.querySelector('#audio').currentSrc), null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('#audio').currentTime > 1, null, { timeout: 10000 });
     const marks = await page.locator('#text mark.word').count();
-    console.log(`PASS MAY-1276 word of the night: "${word}" opens its story in the player with its recorded audio, the word card shows and the word is marked ${marks} times in the text`);
+    console.log(`PASS MAY-1276 word of the night: "${word}" opens its story in the player and its recorded audio plays past 1 s, the word card shows and the word is marked ${marks} times in the text`);
     await page.click('#back');
 
     await learn('quiz');

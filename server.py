@@ -45,10 +45,12 @@ first_waiters = 0
 store_lock = threading.RLock()
 audio_threads = {}
 chain_threads = {}
-# Characters sent to ElevenLabs in the last ELEVEN_LAG seconds: the account counter can lag behind,
-# so they count against the quota until it has surely caught up (MAY-1276 review).
+# Characters booked for ElevenLabs that the account counter may not show yet, because it can lag
+# (MAY-1276 review). `baseline` is the counter before the first booking; whatever it has risen since
+# counts as shown. After ELEVEN_LAG quiet seconds the counter has surely caught up and the book resets.
+# ponytail: other use of the same account in that window also counts as shown; a few minutes, few characters.
 eleven_lock = threading.Lock()
-eleven_recent = []
+eleven_booked = {'baseline': 0, 'sent': 0, 'at': float('-inf')}
 ELEVEN_LAG = 600
 log = logging.getLogger('storytime')
 
@@ -194,17 +196,25 @@ EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\
 
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
-    Everything after the last --- line goes, when WORD or Q lines follow it; without a --- line only
-    well-formed WORD and Q lines at the very end go, so a story paragraph that starts with Q: stays.
+    Everything from the last --- line that a WORD or Q line follows goes, closing rules and chatter
+    included. Without one, the final group of well-formed WORD and Q lines goes (with anything after
+    it) when it holds two lines or ends the text, so a story paragraph that starts with Q: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
-    rules = [i for i, line in enumerate(lines) if re.fullmatch(r'\s*-{3,}\s*', line)]
-    if rules and any(EXTRA_KEY.match(line) for line in lines[rules[-1] + 1:]):
+    following = lambda i: next((line for line in lines[i + 1:] if line.strip()), '')
+    rules = [i for i, line in enumerate(lines) if re.fullmatch(r'\s*-{3,}\s*', line) and EXTRA_KEY.match(following(i))]
+    marks = [i for i, line in enumerate(lines) if EXTRA_LINE.fullmatch(line)]
+    end = len(lines)
+    if rules:
         end = rules[-1]
-    else:
-        end = len(lines)
-        while end and (EXTRA_LINE.fullmatch(lines[end - 1]) or not lines[end - 1].strip()):
-            end -= 1
+    elif marks:
+        start = marks[-1]
+        for i in reversed(marks[:-1]):
+            if any(line.strip() for line in lines[i + 1:start]):
+                break
+            start = i
+        if len([i for i in marks if i >= start]) >= 2 or not following(marks[-1]):
+            end = start
     story = '\n'.join(lines[:end]).rstrip()
     word, quiz = None, []
     for line in lines[end:]:
@@ -457,22 +467,28 @@ def eleven_speech(paragraph, voice, output, previous=''):
     write_wav(output, frames)
 
 
-def eleven_has_room(characters):
-    """True when this month's ElevenLabs quota covers the story and still keeps the reserve for other uses.
-    The plan's own quota is the ceiling, so there is never a surprise bill."""
+def eleven_has_room(characters, book=False):
+    """True when this month's ElevenLabs quota covers the characters and still keeps the reserve for other
+    uses. The plan's own quota is the ceiling, so there is never a surprise bill. With book, the characters
+    are booked before the request goes out and stay booked even if it fails, since it may still be charged."""
     try:
         request = urllib.request.Request('https://api.elevenlabs.io/v1/user/subscription',
                                         headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
         with urllib.request.urlopen(request, timeout=10) as response:
             quota = json.load(response)
-        with eleven_lock:
-            now = time.monotonic()
-            eleven_recent[:] = [(at, sent) for at, sent in eleven_recent if now - at < ELEVEN_LAG]
-            recent = sum(sent for _, sent in eleven_recent)
-        return quota['character_limit'] - quota['character_count'] - recent - CONFIG.elevenlabs_reserve_chars >= characters
+        used, limit = int(quota['character_count']), int(quota['character_limit'])
     except Exception as error:
         log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
         return False
+    with eleven_lock:
+        if time.monotonic() - eleven_booked['at'] > ELEVEN_LAG:
+            eleven_booked.update(baseline=used, sent=0)
+        unseen = max(0, eleven_booked['sent'] - (used - eleven_booked['baseline']))
+        if limit - used - unseen - CONFIG.elevenlabs_reserve_chars < characters:
+            return False
+        if book:
+            eleven_booked.update(sent=eleven_booked['sent'] + characters, at=time.monotonic())
+        return True
 
 
 def story_reader(choices, number, paragraphs):
@@ -499,11 +515,9 @@ def local_voice_clip(paragraph, voice, output):
 
 def voice_clip(paragraph, voice, output, previous=''):
     # Runs under voice_lock, one paragraph at a time, so this check also holds when two stories overlap.
-    if voice in TWIN and eleven_has_room(len(paragraph)):
+    if voice in TWIN and eleven_has_room(len(paragraph), book=True):
         try:
             eleven_speech(paragraph, voice, output, previous)
-            with eleven_lock:
-                eleven_recent.append((time.monotonic(), len(paragraph)))
             return 'ElevenLabs'
         except Exception as error:
             log.warning('ElevenLabs unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))

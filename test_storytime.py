@@ -688,9 +688,16 @@ class StorytimeCheck(unittest.TestCase):
             told = story + '\n\n' + prefix
             self.assertEqual(server.split_extras(told), (told, None, None))
             self.assertEqual(len(server.parse_story(told)[1]), 5)
+        # Round 2: a closing rule after the block, and a block with no rule followed by chatter.
+        text, word, quiz = server.split_extras(good + '---\n')
+        self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        bare = good.replace('\n\n---\n', '\n\n') + 'Sleep tight, little one!\n'
+        text, word, quiz = server.split_extras(bare)
+        self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))
+        self.assertEqual(server.split_extras(scene + '\n\n---\nWORD: otter = a river animal')[:2], (scene, {'word': 'otter', 'meaning': 'a river animal'}))
         with patch.object(server, 'api_key', return_value='test-only'), patch.object(server.urllib.request, 'urlopen') as send:
             send.return_value.__enter__.return_value = io.StringIO(json.dumps({'stop_reason': 'end_turn', 'content': [{'type': 'text', 'text': good}]}))
             title, paragraphs, word, quiz = server.generate_text(server.Choices(), 1, [])
@@ -744,7 +751,7 @@ class StorytimeCheck(unittest.TestCase):
     def test_elevenlabs_request_and_twin_fallback(self):
         import server
         with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only') as key, \
-                patch.object(server, 'eleven_has_room', return_value=True), patch.object(server, 'eleven_recent', []):
+                patch.object(server, 'eleven_has_room', return_value=True):
             output = Path(directory) / 'speech.wav'
             with patch.object(server.urllib.request, 'urlopen') as send:
                 send.return_value.__enter__.return_value = io.BytesIO(b'\x01\x00' * 2400)
@@ -790,26 +797,42 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
             room.assert_not_called()
 
-    def test_overlapping_stories_never_spend_the_reserve(self):
+    def eleven_run(self, paragraphs, counter_follows, fail_first=False):
+        """Read paragraphs as Nana with a mocked account: 20,000 of 33,136 used, so 3,136 above the reserve."""
         import server
-        quota = {'character_limit': 33136, 'character_count': 20000}
+        charged = []
         def reply(request, timeout):
             response = Mock()
-            response.__enter__ = Mock(return_value=io.StringIO(json.dumps(quota)))
+            used = 20000 + (sum(charged) if counter_follows else 0)
+            response.__enter__ = Mock(return_value=io.StringIO(json.dumps({'character_limit': 33136, 'character_count': used})))
             response.__exit__ = Mock(return_value=False)
             return response
-        sent = []
         def speak(text, voice, path, previous=''):
-            sent.append(len(text))
+            charged.append(len(text))  # the provider charges as soon as it answers
+            if fail_first and len(charged) == 1:
+                raise OSError('disk full while saving')
             path.write_bytes(wav_bytes())
         with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only'), \
-                patch.object(server.urllib.request, 'urlopen', side_effect=reply), patch.object(server, 'eleven_recent', []), \
+                patch.object(server.urllib.request, 'urlopen', side_effect=reply), \
+                patch.object(server, 'eleven_booked', {'baseline': 0, 'sent': 0, 'at': float('-inf')}), \
                 patch.object(server, 'eleven_speech', side_effect=speak), \
                 patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())):
-            # Two Nana stories of two 1,000-character paragraphs each, interleaved; the account counter does not move.
-            engines = [server.voice_clip('x' * 1000, 'el_nana', Path(directory) / f'{n}.wav') for n in range(4)]
+            engines = [server.voice_clip(text, 'el_nana', Path(directory) / f'{n}.wav') for n, text in enumerate(paragraphs)]
+        return engines, sum(charged)
+
+    def test_overlapping_stories_never_spend_the_reserve(self):
+        # Two Nana stories of two 1,000-character paragraphs each, interleaved, while the account counter lags.
+        engines, charged = self.eleven_run(['x' * 1000] * 4, counter_follows=False)
         self.assertEqual(engines, ['ElevenLabs'] * 3 + ['Mistral'])
-        self.assertLessEqual(sum(sent), 33136 - 20000 - 10000, 'The 10,000 reserve stays untouched')
+        self.assertLessEqual(charged, 3136, 'The 10,000 reserve stays untouched')
+        # A request that was charged but then failed locally stays booked.
+        engines, charged = self.eleven_run(['x' * 1000] * 4, counter_follows=False, fail_first=True)
+        self.assertEqual(engines, ['Mistral', 'ElevenLabs', 'ElevenLabs', 'Mistral'])
+        self.assertLessEqual(charged, 3136)
+        # A counter that keeps up is not counted twice: a story that fits is read to the end.
+        engines, charged = self.eleven_run(['x' * 750] * 4, counter_follows=True)
+        self.assertEqual(engines, ['ElevenLabs'] * 4)
+        self.assertEqual(charged, 3000)
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server
