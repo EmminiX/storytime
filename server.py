@@ -198,9 +198,10 @@ EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
     The section starts at the first --- line followed by a WORD or Q line. Without one, it starts at the
-    first WORD or Q line of the group of lines that holds the last well-formed one. Everything from there
-    goes: malformed lines, stray lines, extra rules and chatter. A story paragraph that merely starts
-    with Q: or WORD: stays.
+    first WORD or Q line of the group of lines (between blank lines) that holds the last well-formed
+    one, and takes in earlier groups that open with a well-formed line, stepping over one stray group
+    between two of them. Everything from the start goes: malformed lines, stray lines, extra rules and
+    chatter. A story paragraph that merely starts with Q: or WORD: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
     following = lambda i: next((line for line in lines[i + 1:] if line.strip()), '')
@@ -210,12 +211,16 @@ def split_extras(text):
     if rules:
         end = rules[0]
     elif anchors:
-        end = anchors[-1]
-        while end and lines[end - 1].strip():  # back through the anchor's own group of lines
-            end -= 1
-        end = next(i for i in range(end, anchors[-1] + 1) if EXTRA_KEY.match(lines[i]))
-        while end and (not lines[end - 1].strip() or EXTRA_KEY.match(lines[end - 1])):
-            end -= 1
+        groups = [(m.start(), m.end()) for m in re.finditer(r'1+', ''.join('1' if line.strip() else '0' for line in lines))]
+        here = next(g for g, (first, stop) in enumerate(groups) if first <= anchors[-1] < stop)
+        end = next(i for i in range(groups[here][0], anchors[-1] + 1) if EXTRA_KEY.match(lines[i]))
+        formed = lambda g: g >= 0 and bool(EXTRA_LINE.fullmatch(lines[groups[g][0]]))
+        g = here - 1
+        while end == groups[g + 1][0] and g >= 0:  # an earlier group joins when it opens with a well-formed line,
+            step = 1 if formed(g) else 2 if formed(g - 1) else 0  # or a stray group sits between two that do
+            if not step:
+                break
+            end, g = groups[g - step + 1][0], g - step
     story = '\n'.join(lines[:end]).rstrip()
     word, quiz = None, []
     for line in lines[end:]:
@@ -486,9 +491,11 @@ def eleven_has_room(characters, book=False):
         if time.monotonic() - eleven_booked['at'] > ELEVEN_LAG:
             eleven_booked.update(last=None, outstanding=0)
         last = used if eleven_booked['last'] is None else eleven_booked['last']
-        # The baseline only moves up: a lower reading settles nothing (a new billing month clears after ELEVEN_LAG).
-        eleven_booked.update(last=max(last, used), outstanding=max(0, eleven_booked['outstanding'] - max(0, used - last)))
-        if limit - used - eleven_booked['outstanding'] - CONFIG.elevenlabs_reserve_chars < characters:
+        # The highest reading wins: a lower one settles nothing and frees nothing (a new billing month
+        # clears after ELEVEN_LAG quiet seconds).
+        seen = max(last, used)
+        eleven_booked.update(last=seen, outstanding=max(0, eleven_booked['outstanding'] - (seen - last)))
+        if limit - seen - eleven_booked['outstanding'] - CONFIG.elevenlabs_reserve_chars < characters:
             return False
         if book:
             eleven_booked.update(outstanding=eleven_booked['outstanding'] + characters, at=time.monotonic())

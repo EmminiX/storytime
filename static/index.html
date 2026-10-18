@@ -1065,10 +1065,12 @@ const LENGTHS = {Short: 'short', Medium: 'medium', Long: 'long'};
 // Reader names come from config.json (reader_names); these are only the defaults.
 let VOICES = {bf_emma: 'Emma', bm_george: 'George', el_nana: 'Nana', el_grandad: 'Grandad'};
 const TWIN = {el_nana: 'bf_emma', el_grandad: 'bm_george'};
-// The reader actually heard: if ElevenLabs could not read a Nana or Grandad paragraph, the Mistral twin did.
+const recorded = s => Boolean(s?.classic) && String(s?.continuous || '').endsWith('.mp3');
+// The reader actually heard: if ElevenLabs could not read a Nana or Grandad paragraph (or a classic
+// has no recording yet), the twin did.
 const readerOf = (s, part = 0) => {
   const reader = s?.reader || s?.choices?.voice, engine = s?.engines?.[String(part + 1)];
-  return TWIN[reader] && !s?.classic && engine && engine !== 'ElevenLabs' ? TWIN[reader] : reader;
+  return TWIN[reader] && !recorded(s) && engine && engine !== 'ElevenLabs' ? TWIN[reader] : reader;
 };
 const LISTENERS = new Map();
 let listeners = [];
@@ -1338,7 +1340,7 @@ function highlight() {
   const current = $('text').children[paragraph];
   const changed = current && !current.classList.contains('active');
   [...$('text').children].forEach((p, i) => { p.classList.toggle('active', i === paragraph && !finished); p.classList.toggle('done', i < paragraph || finished); });
-  const engine = story?.classic ? 'Recorded voice' : (story?.engines?.[String(paragraph + 1)] || 'Not ready');
+  const engine = recorded(story) ? 'Recorded voice' : (story?.engines?.[String(paragraph + 1)] || 'Not ready');
   $('engine').textContent = `Voice: ${VOICES[readerOf(story, paragraph)] || 'Emma'} · ${engine}`;
   if (changed && wantsPlay && !html.classList.contains('sleeping')) current.scrollIntoView({block: 'center', behavior: motion ? 'smooth' : 'auto'});
 }

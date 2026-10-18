@@ -705,6 +705,18 @@ class StorytimeCheck(unittest.TestCase):
         for case in (stray, stray.replace('\n\n---\n', '\n\n')):
             text, word, quiz = server.split_extras(case)
             self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        # Round 5: a narrative Q: or WORD: paragraph right before a block without a rule stays story;
+        # a stray line with blank lines around it, inside a block without a rule, goes with the block.
+        bare_block = good.replace('\n\n---\n', '\n\n')
+        for prefix in ('Q: what did the otter want?', 'WORD: that was the last word she said.'):
+            told = story + '\n\n' + prefix
+            text, word, quiz = server.split_extras(bare_block.replace(story, told, 1))
+            self.assertEqual((text, word['word'], len(quiz)), (told, 'patient', 3))
+        spaced = bare_block.replace('Q: Where did', 'A stray line\n\nQ: Where did')
+        alone = bare_block.replace('Q: Where did', '\nA stray line\n\nQ: Where did')  # the stray line is its own group
+        for case in (spaced, alone):
+            text, word, quiz = server.split_extras(case)
+            self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))
@@ -852,7 +864,7 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_late_quota_reading_cannot_move_the_baseline_back(self):
         import server
-        readings = iter([20000, 20750, 20750, 20000])
+        readings = iter([20000, 20750, 20750, 20000, 20000, 20000])
         def reply(request, timeout):
             response = Mock()
             response.__enter__ = Mock(return_value=io.StringIO(json.dumps({'character_limit': 33136, 'character_count': next(readings)})))
@@ -864,13 +876,21 @@ class StorytimeCheck(unittest.TestCase):
             self.assertTrue(server.eleven_has_room(750, book=True))  # 20,750 settles the first booking
             self.assertTrue(server.eleven_has_room(750, book=True))
             self.assertEqual(server.eleven_booked['outstanding'], 1500)
-            server.eleven_has_room(1)  # a late, lower reading settles nothing and keeps the baseline
+            self.assertTrue(server.eleven_has_room(1))  # a late, lower reading settles nothing and keeps the baseline
             self.assertEqual((server.eleven_booked['last'], server.eleven_booked['outstanding']), (20750, 1500))
+            # ...and frees nothing: 33,136 - 20,750 - 1,500 booked - 10,000 reserve = 886 left, not 1,636.
+            self.assertFalse(server.eleven_has_room(887))
+            self.assertTrue(server.eleven_has_room(886))
         # The reading happens under the lock, so two checks cannot interleave their readings.
-        with patch.object(server.urllib.request, 'urlopen', side_effect=lambda *a, **k: self.assertTrue(server.eleven_lock.locked()) or reply(*a, **k)), \
+        held = []
+        def watched(*args, **kwargs):
+            held.append(server.eleven_lock.locked())
+            return reply(*args, **kwargs)
+        with patch.object(server.urllib.request, 'urlopen', side_effect=watched), \
                 patch.object(server, 'api_key', return_value='test-only'), patch.object(server, 'eleven_booked', {'last': None, 'outstanding': 0, 'at': float('-inf')}):
             readings = iter([20000])
-            server.eleven_has_room(1)
+            self.assertTrue(server.eleven_has_room(1))
+        self.assertEqual(held, [True])
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server
