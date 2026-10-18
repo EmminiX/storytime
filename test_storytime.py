@@ -724,6 +724,8 @@ class StorytimeCheck(unittest.TestCase):
         # Round 7: a block in which no line is valid still never reaches the voice.
         hopeless = story + '\n\nWORD: patient = \nQ: Who waited? | Otter | Owl\nQ: Where were they? | Lake'
         self.assertEqual(server.split_extras(hopeless), (story, None, None))
+        questions_only = story + '\n\nQ: Who waited? | Otter | Owl\n\nQ: Where were they? | Lake | Sky\n\nQ: How did it end? | Asleep | Dancing'
+        self.assertEqual(server.split_extras(questions_only), (story, None, None))
         # A --- scene break with no WORD or Q lines after it is story, not a block.
         scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
         self.assertEqual(server.split_extras(scene), (scene, None, None))
