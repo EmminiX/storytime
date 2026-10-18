@@ -31,7 +31,7 @@ function fail(message) {
   process.exitCode = 1;
 }
 
-for (const name of ['ANTHROPIC_API_KEY', 'MISTRAL_API_KEY']) {
+for (const name of ['ANTHROPIC_API_KEY', 'MISTRAL_API_KEY', 'ELEVENLABS_API_KEY']) {
   if (process.env[name]) {
     console.error(`FAIL: ${name} is set. The browser check is offline-only; unset the provider keys first.`);
     process.exit(1);
@@ -40,7 +40,7 @@ for (const name of ['ANTHROPIC_API_KEY', 'MISTRAL_API_KEY']) {
 const envFile = path.join(ROOT, '.env');
 if (fs.existsSync(envFile)) {
   const body = fs.readFileSync(envFile, 'utf8');
-  for (const name of ['ANTHROPIC_API_KEY', 'MISTRAL_API_KEY']) {
+  for (const name of ['ANTHROPIC_API_KEY', 'MISTRAL_API_KEY', 'ELEVENLABS_API_KEY']) {
     const match = body.match(new RegExp(`^${name}=(.*)$`, 'm'));
     if (match && match[1].replace(/['"]/g, '').trim()) {
       console.error(`FAIL: ${name} is set in .env. The browser check is offline-only; unset the provider keys first.`);
@@ -372,8 +372,7 @@ try {
     const rows = await page.locator('#books .saved-row').count();
     await page.locator('#books .saved-row .pill.small').first().tap();
     await page.waitForFunction(n => document.querySelectorAll('#books .saved-row').length === n - 1, rows, { timeout: 5000 });
-    await page.click('#shelf-back');
-    await page.click('#to-archive');
+    await page.click('#to-archive'); // MAY-1276: the Archive button lives on the Stories page
     await page.waitForFunction(t => [...document.querySelectorAll('#archive-books .saved-row .book strong')].some(el => el.textContent.trim() === t), title, { timeout: 5000 });
     await page.locator('#archive-books .saved-row .pill.small').first().tap();
     await page.waitForFunction(t => [...document.querySelectorAll('#archive-books .saved-row .book strong')].every(el => el.textContent.trim() !== t), title, { timeout: 5000 });
@@ -397,6 +396,86 @@ try {
     await page.waitForTimeout(2500);
     if (notFound.length) throw new Error(`MAY-725 c: ${notFound.length} x 404 (${notFound.join(', ')})`);
     console.log('PASS MAY-725 c: zero 404 responses when an old story plays with a missing audio part');
+    await page.close();
+  }
+
+  // MAY-1276: the Favourites button in the top bar opens the page and shows a saved favourite.
+  {
+    const toggled = await (await fetch(`${base}/api/favorites/${STORY_ID}`, { method: 'POST' })).json();
+    if (!toggled.favorite) await fetch(`${base}/api/favorites/${STORY_ID}`, { method: 'POST' });
+    const page = await run(1024, 768);
+    await page.click('#to-favs');
+    await page.waitForFunction(() => !document.querySelector('#shelf').hidden && document.querySelector('#shelf-h').textContent === 'Favourites', null, { timeout: 5000 });
+    await page.waitForFunction(() => [...document.querySelectorAll('#books .book strong')].some(el => el.textContent === 'The Quiet Rocket'), null, { timeout: 5000 });
+    const current = await page.getAttribute('#to-favs', 'aria-current');
+    if (current !== 'page') throw new Error(`favourites button is not marked current: ${current}`);
+    console.log('PASS MAY-1276 favourites: the top bar heart opens Favourites and it lists the saved favourite "The Quiet Rocket"');
+    await fetch(`${base}/api/favorites/${STORY_ID}`, { method: 'POST' });
+
+    const learn = async id => {
+      await page.click('#to-learn');
+      await page.waitForSelector(`#do-${id}`, { state: 'visible', timeout: 5000 });
+      await page.click(`#do-${id}`);
+    };
+    const done = () => page.waitForSelector('#activity-done', { state: 'visible', timeout: 5000 });
+
+    await learn('word');
+    const word = (await page.locator('.word-big').textContent()).trim();
+    await page.click('#word-listen');
+    await page.waitForFunction(w => !document.querySelector('#play').hidden && !document.querySelector('#word-night').hidden &&
+      [...document.querySelectorAll('#text mark.word')].some(m => m.textContent.toLowerCase() === w.toLowerCase()), word, { timeout: 10000 });
+    const marks = await page.locator('#text mark.word').count();
+    console.log(`PASS MAY-1276 word of the night: "${word}" opens its story in the player, the word card shows and the word is marked ${marks} times in the text`);
+    await page.click('#back');
+
+    await learn('quiz');
+    await page.click('.story-pick .book');
+    for (let question = 1; question <= 3; question++) {
+      await page.click('.answer[data-right="true"]');
+      const reply = (await page.locator('.reply').textContent()).trim();
+      if (!reply.startsWith('Yes!')) throw new Error(`quiz question ${question}: reply "${reply}"`);
+      await page.click('#quiz-next');
+    }
+    await done();
+    console.log('PASS MAY-1276 did you hear: three questions answered with gentle replies, the star shows');
+
+    await learn('path');
+    await page.click('.story-pick .book');
+    let pages = 1;
+    while (!(await page.locator('#activity-done').count())) {
+      if (pages > 12) throw new Error('choose the path: no ending after 12 pages');
+      await page.locator('.choice').first().click();
+      pages++;
+    }
+    await done();
+    console.log(`PASS MAY-1276 choose the path: read ${pages} pages to a calm ending`);
+
+    await learn('pairs');
+    const pairs = await page.evaluate(() => [...new Set([...document.querySelectorAll('.card')].map(c => c.dataset.pair))]);
+    if (pairs.length !== 6) throw new Error(`story pairs: ${pairs.length} pairs, expected 6`);
+    await page.locator('.card').first().click();
+    const first = await page.locator('.card').first().getAttribute('data-pair');
+    const miss = page.locator(`.card:not([data-pair="${first}"])`).first();
+    await miss.click();
+    await page.waitForFunction(() => !document.querySelector('.card.up'), null, { timeout: 3000 });
+    for (const pair of pairs) {
+      for (const card of await page.locator(`.card[data-pair="${pair}"]`).all()) await card.click();
+    }
+    await done();
+    console.log('PASS MAY-1276 story pairs: a wrong pair turns back, all 6 pairs found, the star shows');
+
+    await learn('draw');
+    const keepDisabled = await page.isDisabled('#draw-keep');
+    const box = await page.locator('.canvas').boundingBox();
+    await page.mouse.move(box.x + 60, box.y + 60);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 220, box.y + 160, { steps: 8 });
+    await page.mouse.up();
+    await page.click('#draw-keep');
+    await page.waitForFunction(() => document.querySelectorAll('.gallery img').length === 1, null, { timeout: 5000 });
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('storytime.drawings')).length);
+    if (!keepDisabled || kept !== 1) throw new Error(`draw your hero: keep disabled before drawing ${keepDisabled}, kept ${kept}`);
+    console.log('PASS MAY-1276 draw your hero: Keep is off until he draws, the drawing is kept on the device and shows in the gallery');
     await page.close();
   }
 

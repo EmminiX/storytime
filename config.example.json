@@ -4,9 +4,16 @@
   "host": "127.0.0.1",
   "port": 8787,
   "mistral_voices": {
-    "bf_emma": "5de47977-6e47-4266-a938-3bc1d76b4676",
-    "bm_george": "390c8a2b-60a6-4882-8437-c49a8bd33b63"
+    "bf_emma": "82c99ee6-f932-423f-a4a3-d403c8914b8d",
+    "bm_george": "e3596645-b1af-469e-b857-f18ddedc7652"
   },
+  "elevenlabs_voices": {
+    "el_nana": "RILOU7YmBhvwJGDGjNmP",
+    "el_grandad": "JBFqnCBsd6RMkjVDRZzb"
+  },
+  "elevenlabs_reserve_chars": 10000,
+  "sentence_pause": 0.6,
+  "reader_names": {"bf_emma": "Emma", "bm_george": "George", "el_nana": "Nana", "el_grandad": "Grandad"},
   "fallback_tts_command": "",
   "daily_story_cap": 10
 }

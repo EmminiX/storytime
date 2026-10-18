@@ -1,20 +1,23 @@
 """Pre-render the Classics audio once on a Mac, so the server never needs
-a runtime voice for them (MAY-706, option A).
+a runtime or paid voice for them (MAY-706, option A; readers MAY-1276).
 
-Run from the project folder with the Kokoro environment:
+Run from the project folder:
 
-    ~/.venvs/kokoro/bin/python tools/render_classics.py
+    .venv/bin/python tools/render_classics.py                      # every tale without an MP3 yet
+    .venv/bin/python tools/render_classics.py classic-stone-soup   # these tales only, rendered again
+    ~/.venvs/kokoro/bin/python tools/render_classics.py --kokoro   # Emma and George with local Kokoro
 
-It synthesises every classic with the Kokoro voice (bf_emma by default,
-the reader fixed in classics.py), joins the paragraphs with the same pauses
-the server uses (1.2 s between parts, 2.5 s after the last), encodes one
-MP3 per tale and records the paragraph start times in a manifest. The
-server serves these files from classics_audio/ and never calls a paid or
-runtime voice for a classic that has them.
+Each tale is read by the reader slot named in classics.py. Emma and George
+use the Mistral voices in config.json, one request per sentence like the
+server; Nana and Grandad use ElevenLabs. Keys come from the environment or
+.env (MISTRAL_API_KEY, ELEVENLABS_API_KEY). With --kokoro, Emma and George
+use the local Kokoro voices instead (kokoro-onnx, numpy, model files
+kokoro-v1.0.onnx and voices-v1.0.bin in ~/.cache/kokoro); the nine first
+classics were made that way.
 
-Dependencies (on the Mac only, not needed by the server): kokoro-onnx,
-numpy, and ffmpeg on PATH. Model files: kokoro-v1.0.onnx and
-voices-v1.0.bin in ~/.cache/kokoro.
+The paragraphs are joined with the server's pauses (1.2 s between parts,
+2.5 s after the last), encoded as one MP3 per tale, and their start times
+are merged into classics_audio/manifest.json. ffmpeg must be on PATH.
 """
 
 import json
@@ -46,45 +49,77 @@ def audio_chunks(result):
             yield part[0]
 
 
-def render(voice):
+def kokoro_reader():
     from kokoro_onnx import Kokoro
     import numpy as np
 
     kokoro = Kokoro(str(MODEL), str(VOICES))
-    OUTPUT.mkdir(exist_ok=True)
-    manifest = {}
-    for tale in classics.CLASSICS:
-        folder = OUTPUT / tale['id']
-        folder.mkdir(exist_ok=True)
-        starts, position = [], 0.0
-        with tempfile.TemporaryDirectory() as work:
-            clips = []
-            for number, paragraph in enumerate(tale['paragraphs'], 1):
-                result = kokoro.create(paragraph, voice=voice, speed=1.0, lang='en-gb')
-                samples = np.concatenate([np.asarray(chunk) for chunk in audio_chunks(result)])
-                clip = Path(work) / f'p{number:02d}.wav'
-                with wave.open(str(clip), 'wb') as audio:
-                    audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
-                    audio.writeframes((samples * 32767).astype('<i2').tobytes())
-                clips.append(clip)
-                starts.append(round(position, 3))
-                position += len(samples) / RATE + (LAST_PAUSE if number == len(tale['paragraphs']) else PAUSE)
-            joined = Path(work) / 'story.wav'
-            with wave.open(str(joined), 'wb') as audio:
-                audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
-                for number, clip in enumerate(clips, 1):
-                    with wave.open(str(clip), 'rb') as part:
-                        while frames := part.readframes(24000):
-                            audio.writeframesraw(frames)
-                        audio.writeframesraw(b'\0' * round(RATE * (LAST_PAUSE if number == len(clips) else PAUSE)) * 2)
-            mp3 = folder / 'story.mp3'
-            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(joined),
-                            '-codec:a', 'libmp3lame', '-b:a', '48k', '-ar', str(RATE), '-ac', '1', str(mp3)], check=True)
-        manifest[tale['id']] = {'starts': starts, 'seconds': round(position, 3)}
-        print(f"{tale['title']}: {position / 60:.1f} min, {mp3.stat().st_size / 1e6:.1f} MB", flush=True)
-    (OUTPUT / 'manifest.json').write_text(json.dumps(manifest, indent=2))
-    print(f"manifest for {len(manifest)} tales written to {OUTPUT / 'manifest.json'}")
+
+    def speak(text, voice, clip, previous):
+        result = kokoro.create(text, voice=voice, speed=1.0, lang='en-gb')
+        samples = np.concatenate([np.asarray(chunk) for chunk in audio_chunks(result)])
+        with wave.open(str(clip), 'wb') as audio:
+            audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
+            audio.writeframes((samples * 32767).astype('<i2').tobytes())
+    return speak
+
+
+def provider_reader(kokoro):
+    import server  # imported here: the Kokoro environment does not need the server's packages
+
+    def speak(text, voice, clip, previous):
+        if voice in server.TWIN:
+            server.eleven_speech(text, voice, clip, previous)
+        elif kokoro:
+            kokoro(text, voice, clip, previous)
+        else:
+            server.mistral_speech(text, voice, clip)
+    return speak
+
+
+def render_tale(tale, speak):
+    folder = OUTPUT / tale['id']
+    folder.mkdir(parents=True, exist_ok=True)
+    voice = tale.get('reader', 'bf_emma')
+    starts, position, clips = [], 0.0, []
+    with tempfile.TemporaryDirectory() as work:
+        for number, paragraph in enumerate(tale['paragraphs'], 1):
+            clip = Path(work) / f'p{number:02d}.wav'
+            speak(paragraph, voice, clip, tale['paragraphs'][number - 2] if number > 1 else '')
+            with wave.open(str(clip), 'rb') as audio:
+                seconds = audio.getnframes() / audio.getframerate()
+            clips.append(clip)
+            starts.append(round(position, 3))
+            position += seconds + (LAST_PAUSE if number == len(tale['paragraphs']) else PAUSE)
+        joined = Path(work) / 'story.wav'
+        with wave.open(str(joined), 'wb') as audio:
+            audio.setparams((1, 2, RATE, 0, 'NONE', 'not compressed'))
+            for number, clip in enumerate(clips, 1):
+                with wave.open(str(clip), 'rb') as part:
+                    while frames := part.readframes(24000):
+                        audio.writeframesraw(frames)
+                audio.writeframesraw(b'\0' * round(RATE * (LAST_PAUSE if number == len(clips) else PAUSE)) * 2)
+        mp3 = folder / 'story.mp3'
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(joined),
+                        '-codec:a', 'libmp3lame', '-b:a', '48k', '-ar', str(RATE), '-ac', '1', str(mp3)], check=True)
+    print(f"{tale['title']} ({voice}): {position / 60:.1f} min, {mp3.stat().st_size / 1e6:.1f} MB", flush=True)
+    return {'starts': starts, 'seconds': round(position, 3)}
+
+
+def render(only, kokoro):
+    manifest_path = OUTPUT / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+    tales = [tale for tale in classics.CLASSICS
+             if (tale['id'] in only if only else not (OUTPUT / tale['id'] / 'story.mp3').is_file())]
+    if only - {tale['id'] for tale in tales}:
+        raise SystemExit(f'Unknown tale ids: {sorted(only - {tale["id"] for tale in tales})}')
+    speak = provider_reader(kokoro_reader() if kokoro else None)
+    for tale in tales:
+        manifest[tale['id']] = render_tale(tale, speak)
+        manifest_path.write_text(json.dumps(manifest, indent=2))  # after each tale, so a failure keeps the finished ones
+    print(f'{len(tales)} tales rendered, manifest holds {len(manifest)}')
 
 
 if __name__ == '__main__':
-    render(sys.argv[1] if len(sys.argv) > 1 else 'bf_emma')
+    arguments = sys.argv[1:]
+    render({a for a in arguments if a != '--kokoro'}, '--kokoro' in arguments)
