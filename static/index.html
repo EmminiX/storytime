@@ -1064,7 +1064,12 @@ const MOODS = {Funny: 'funny', 'Brave adventure': 'brave', 'Calm and sleepy': 's
 const LENGTHS = {Short: 'short', Medium: 'medium', Long: 'long'};
 // Reader names come from config.json (reader_names); these are only the defaults.
 let VOICES = {bf_emma: 'Emma', bm_george: 'George', el_nana: 'Nana', el_grandad: 'Grandad'};
-const readerOf = s => s?.reader || s?.choices?.voice;
+const TWIN = {el_nana: 'bf_emma', el_grandad: 'bm_george'};
+// The reader actually heard: if ElevenLabs could not read a Nana or Grandad paragraph, the Mistral twin did.
+const readerOf = (s, part = 0) => {
+  const reader = s?.reader || s?.choices?.voice, engine = s?.engines?.[String(part + 1)];
+  return TWIN[reader] && !s?.classic && engine && engine !== 'ElevenLabs' ? TWIN[reader] : reader;
+};
 const LISTENERS = new Map();
 let listeners = [];
 function listenerHero(who) { return ['Both', 'Everyone'].includes(who) ? listeners.map(item => item.name).join(' and ') : who; }
@@ -1072,10 +1077,10 @@ async function loadListeners() {
   try {
     const config = await request('/api/config');
     listeners = config.listeners;
-    VOICES = config.readers || VOICES;
+    VOICES = config.reader_names || VOICES;
     form.querySelectorAll('input[name="voice"]').forEach(input => {
       const tile = input.closest('.tile');
-      tile.hidden = !(input.value in VOICES);
+      tile.hidden = !(config.readers || Object.keys(VOICES)).includes(input.value);
       tile.querySelector('.name').textContent = VOICES[input.value] || '';
     });
     const names = listeners.map(item => item.name);
@@ -1334,7 +1339,7 @@ function highlight() {
   const changed = current && !current.classList.contains('active');
   [...$('text').children].forEach((p, i) => { p.classList.toggle('active', i === paragraph && !finished); p.classList.toggle('done', i < paragraph || finished); });
   const engine = story?.classic ? 'Recorded voice' : (story?.engines?.[String(paragraph + 1)] || 'Not ready');
-  $('engine').textContent = `Voice: ${VOICES[readerOf(story)] || 'Emma'} · ${engine}`;
+  $('engine').textContent = `Voice: ${VOICES[readerOf(story, paragraph)] || 'Emma'} · ${engine}`;
   if (changed && wantsPlay && !html.classList.contains('sleeping')) current.scrollIntoView({block: 'center', behavior: motion ? 'smooth' : 'auto'});
 }
 function armSleep() { clearTimeout(sleepTimer); if (wantsPlay) sleepTimer = setTimeout(() => { html.classList.add('sleeping'); window.scrollTo(0, 0); }, 20000); }

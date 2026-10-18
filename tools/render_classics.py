@@ -65,13 +65,12 @@ def kokoro_reader():
 
 
 def provider_reader(kokoro):
-    import server  # imported here: the Kokoro environment does not need the server's packages
-
     def speak(text, voice, clip, previous):
+        if kokoro and voice in ('bf_emma', 'bm_george'):
+            return kokoro(text, voice, clip, previous)
+        import server  # only for the paid readers: the Kokoro environment lacks the server's packages
         if voice in server.TWIN:
             server.eleven_speech(text, voice, clip, previous)
-        elif kokoro:
-            kokoro(text, voice, clip, previous)
         else:
             server.mistral_speech(text, voice, clip)
     return speak

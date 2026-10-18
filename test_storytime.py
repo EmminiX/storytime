@@ -50,7 +50,8 @@ class StorytimeCheck(unittest.TestCase):
         import server
         from pydantic import ValidationError
         self.assertEqual(server.public_config(), {'listeners': [{'name': 'Robin', 'age': 8}, {'name': 'Sam', 'age': 5, 'picture': 'girl'}],
-                                                  'readers': {'bf_emma': 'Emma', 'bm_george': 'George', 'el_nana': 'Nana', 'el_grandad': 'Grandad'}})
+                                                  'readers': ['bf_emma', 'bm_george', 'el_nana', 'el_grandad'],
+                                                  'reader_names': {'bf_emma': 'Emma', 'bm_george': 'George', 'el_nana': 'Nana', 'el_grandad': 'Grandad'}})
         server.CONFIG.listeners[0].age = 9
         server.CONFIG.local_flavour = 'Gentle seaside details are welcome.'
         prompt = server.story_prompt(server.Choices(who='Robin'), 1, [])
@@ -678,6 +679,18 @@ class StorytimeCheck(unittest.TestCase):
         self.assertEqual(server.split_extras(story), (story, None, None))
         no_rule = story + '\nWORD: otter = a river animal\n'
         self.assertEqual(server.split_extras(no_rule)[:2], (story, {'word': 'otter', 'meaning': 'a river animal'}))
+        # Review MAY-1276: a line after the block, or a malformed one, never reaches the voice.
+        trailing = good + 'Sleep tight!\nQ: half a question\n'
+        text, word, quiz = server.split_extras(trailing)
+        self.assertEqual((text, word['word'], len(quiz)), (story, 'patient', 3))
+        # A story paragraph that starts with Q: or WORD: stays when there is no --- block.
+        for prefix in ('Q: what did the otter want?', 'WORD: that was the last word she said.'):
+            told = story + '\n\n' + prefix
+            self.assertEqual(server.split_extras(told), (told, None, None))
+            self.assertEqual(len(server.parse_story(told)[1]), 5)
+        # A --- scene break with no WORD or Q lines after it is story, not a block.
+        scene = 'A gentle swim\n\nThe otter swam.\n\n---\n\nA friend.\n\nA wave.\n\nHome asleep.'
+        self.assertEqual(server.split_extras(scene), (scene, None, None))
         with patch.object(server, 'api_key', return_value='test-only'), patch.object(server.urllib.request, 'urlopen') as send:
             send.return_value.__enter__.return_value = io.StringIO(json.dumps({'stop_reason': 'end_turn', 'content': [{'type': 'text', 'text': good}]}))
             title, paragraphs, word, quiz = server.generate_text(server.Choices(), 1, [])
@@ -688,6 +701,7 @@ class StorytimeCheck(unittest.TestCase):
         import server
         self.assertEqual(server.sentences('The moon rose. "Goodnight, stars," he said. "Sleep well!" And the stars blinked? Yes.'),
                          ['The moon rose.', '"Goodnight, stars," he said.', '"Sleep well!"', 'And the stars blinked?', 'Yes.'])
+        self.assertEqual(server.sentences("'Sleep well!' The owl slept."), ["'Sleep well!'", 'The owl slept.'])
         self.assertEqual(server.sentences('One line only'), ['One line only'])
 
     def test_mistral_reads_one_sentence_per_request_with_pauses(self):
@@ -729,7 +743,8 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_elevenlabs_request_and_twin_fallback(self):
         import server
-        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only') as key:
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only') as key, \
+                patch.object(server, 'eleven_has_room', return_value=True), patch.object(server, 'eleven_recent', []):
             output = Path(directory) / 'speech.wav'
             with patch.object(server.urllib.request, 'urlopen') as send:
                 send.return_value.__enter__.return_value = io.BytesIO(b'\x01\x00' * 2400)
@@ -775,6 +790,27 @@ class StorytimeCheck(unittest.TestCase):
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
             room.assert_not_called()
 
+    def test_overlapping_stories_never_spend_the_reserve(self):
+        import server
+        quota = {'character_limit': 33136, 'character_count': 20000}
+        def reply(request, timeout):
+            response = Mock()
+            response.__enter__ = Mock(return_value=io.StringIO(json.dumps(quota)))
+            response.__exit__ = Mock(return_value=False)
+            return response
+        sent = []
+        def speak(text, voice, path, previous=''):
+            sent.append(len(text))
+            path.write_bytes(wav_bytes())
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only'), \
+                patch.object(server.urllib.request, 'urlopen', side_effect=reply), patch.object(server, 'eleven_recent', []), \
+                patch.object(server, 'eleven_speech', side_effect=speak), \
+                patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())):
+            # Two Nana stories of two 1,000-character paragraphs each, interleaved; the account counter does not move.
+            engines = [server.voice_clip('x' * 1000, 'el_nana', Path(directory) / f'{n}.wav') for n in range(4)]
+        self.assertEqual(engines, ['ElevenLabs'] * 3 + ['Mistral'])
+        self.assertLessEqual(sum(sent), 33136 - 20000 - 10000, 'The 10,000 reserve stays untouched')
+
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server
         from pydantic import ValidationError
@@ -791,7 +827,8 @@ class StorytimeCheck(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValidationError):
                 server.Config(**(base | invalid))
         server.CONFIG.elevenlabs_voices = {'el_nana': 'abcdefgh12'}
-        self.assertEqual(list(server.public_config()['readers']), ['bf_emma', 'bm_george', 'el_nana'])
+        self.assertEqual(server.public_config()['readers'], ['bf_emma', 'bm_george', 'el_nana'])
+        self.assertEqual(server.public_config()['reader_names']['el_grandad'], 'Grandad', 'Recorded classics still name their reader')
 
     def test_story_records_its_reader_word_and_quiz(self):
         import server
@@ -856,6 +893,15 @@ class StorytimeCheck(unittest.TestCase):
         fonts = sorted((server.STATIC / 'fonts').glob('*.woff2'))
         self.assertTrue(fonts, 'Lexend is self-hosted')
         self.assertEqual(client.get(f'/static/fonts/{fonts[0].name}').headers['content-type'], 'font/woff2')
+        with tempfile.TemporaryDirectory() as directory:
+            static, outside = Path(directory) / 'static', Path(directory) / 'outside.js'
+            static.mkdir(); outside.write_text('secret'); (static / 'ok.js').write_text('ok')
+            (static / 'link.js').symlink_to(outside)
+            with patch.object(server, 'STATIC', static.resolve()):
+                self.assertEqual(server.static_file('ok.js').path, (static / 'ok.js').resolve())
+                for escape in ('../outside.js', 'link.js', str(outside)):
+                    with self.subTest(escape=escape), self.assertRaises(server.HTTPException):
+                        server.static_file(escape)
         for bad in ('/static/../server.py', '/static/%2e%2e/server.py', '/static/..%2fserver.py', '/static/index.html',
                     '/static/manifest.webmanifest', '/static/fonts/missing.woff2', '/static/%2e%2e/%2e%2e/etc/passwd'):
             with self.subTest(path=bad):

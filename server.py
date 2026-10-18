@@ -7,6 +7,7 @@ import shlex
 import re
 import subprocess
 import threading
+import time
 import urllib.error
 import urllib.request
 import wave
@@ -44,6 +45,11 @@ first_waiters = 0
 store_lock = threading.RLock()
 audio_threads = {}
 chain_threads = {}
+# Characters sent to ElevenLabs in the last ELEVEN_LAG seconds: the account counter can lag behind,
+# so they count against the quota until it has surely caught up (MAY-1276 review).
+eleven_lock = threading.Lock()
+eleven_recent = []
+ELEVEN_LAG = 600
 log = logging.getLogger('storytime')
 
 
@@ -182,17 +188,24 @@ def parse_story(text):
     return title, paragraphs
 
 
-EXTRA_LINE = re.compile(r'\s*(?:-{3,}|(?:WORD|Q)\s*:.*)?\s*', re.IGNORECASE)
+EXTRA_KEY = re.compile(r'\s*(?:WORD|Q)\s*:', re.IGNORECASE)
+EXTRA_LINE = re.compile(r'\s*(?:WORD\s*:[^=|]+=[^=|]+|Q\s*:[^|]+(?:\|[^|]+){3})\s*', re.IGNORECASE)
 
 
 def split_extras(text):
     """Take the word of the night and the three questions off the end of a story response.
+    Everything after the last --- line goes, when WORD or Q lines follow it; without a --- line only
+    well-formed WORD and Q lines at the very end go, so a story paragraph that starts with Q: stays.
     A missing or bad block never fails the story: that story simply has no word or quiz."""
     lines = text.rstrip().splitlines()
-    end = len(lines)
-    while end and EXTRA_LINE.fullmatch(lines[end - 1]):
-        end -= 1
-    story = '\n'.join(lines[:end])
+    rules = [i for i, line in enumerate(lines) if re.fullmatch(r'\s*-{3,}\s*', line)]
+    if rules and any(EXTRA_KEY.match(line) for line in lines[rules[-1] + 1:]):
+        end = rules[-1]
+    else:
+        end = len(lines)
+        while end and (EXTRA_LINE.fullmatch(lines[end - 1]) or not lines[end - 1].strip()):
+            end -= 1
+    story = '\n'.join(lines[:end]).rstrip()
     word, quiz = None, []
     for line in lines[end:]:
         key, _, value = line.partition(':')
@@ -397,7 +410,7 @@ def write_wav(path, frames):
 
 def sentences(paragraph):
     """A paragraph split into sentences; a closing quote stays with its sentence."""
-    return [part for part in re.split(r'(?<=[.!?])\s+|(?<=[.!?]["”’])\s+', paragraph.strip()) if part]
+    return [part for part in re.split(r'(?<=[.!?])\s+|(?<=[.!?]["”’\'])\s+', paragraph.strip()) if part]
 
 
 def mistral_frames(text, voice):
@@ -452,7 +465,11 @@ def eleven_has_room(characters):
                                         headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
         with urllib.request.urlopen(request, timeout=10) as response:
             quota = json.load(response)
-        return quota['character_limit'] - quota['character_count'] - CONFIG.elevenlabs_reserve_chars >= characters
+        with eleven_lock:
+            now = time.monotonic()
+            eleven_recent[:] = [(at, sent) for at, sent in eleven_recent if now - at < ELEVEN_LAG]
+            recent = sum(sent for _, sent in eleven_recent)
+        return quota['character_limit'] - quota['character_count'] - recent - CONFIG.elevenlabs_reserve_chars >= characters
     except Exception as error:
         log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
         return False
@@ -481,13 +498,16 @@ def local_voice_clip(paragraph, voice, output):
 
 
 def voice_clip(paragraph, voice, output, previous=''):
-    if voice in TWIN:
+    # Runs under voice_lock, one paragraph at a time, so this check also holds when two stories overlap.
+    if voice in TWIN and eleven_has_room(len(paragraph)):
         try:
             eleven_speech(paragraph, voice, output, previous)
+            with eleven_lock:
+                eleven_recent.append((time.monotonic(), len(paragraph)))
             return 'ElevenLabs'
         except Exception as error:
             log.warning('ElevenLabs unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
-        voice = TWIN[voice]
+    voice = TWIN.get(voice, voice)
     try:
         mistral_speech(paragraph, voice, output)
         return 'Mistral'
@@ -768,9 +788,11 @@ def choose_paths():
 
 @app.get('/api/config')
 def public_config():
-    # An ElevenLabs reader shows only once its voice is configured.
-    readers = {slot: name for slot, name in CONFIG.reader_names.items() if slot not in TWIN or slot in CONFIG.elevenlabs_voices}
-    return {'listeners': [listener.model_dump(exclude_none=True) for listener in CONFIG.listeners], 'readers': readers}
+    # An ElevenLabs reader is offered for new stories only once its voice is configured; every name
+    # is still sent, because recorded classics name their reader.
+    readers = [slot for slot in CONFIG.reader_names if slot not in TWIN or slot in CONFIG.elevenlabs_voices]
+    return {'listeners': [listener.model_dump(exclude_none=True) for listener in CONFIG.listeners],
+            'readers': readers, 'reader_names': CONFIG.reader_names}
 
 
 @app.get('/stories/{story_id}/{filename}')
