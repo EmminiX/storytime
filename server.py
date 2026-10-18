@@ -45,13 +45,6 @@ first_waiters = 0
 store_lock = threading.RLock()
 audio_threads = {}
 chain_threads = {}
-# Characters booked for ElevenLabs that the account counter may not show yet, because it can lag
-# (MAY-1276 review). Each rise of the counter since the last reading settles that much of the
-# outstanding bookings and no more: a rise beyond them is other use of the account, never credit.
-# After ELEVEN_LAG quiet seconds the counter has surely caught up and nothing is outstanding.
-eleven_lock = threading.Lock()
-eleven_booked = {'last': None, 'outstanding': 0, 'at': float('-inf')}
-ELEVEN_LAG = 600
 log = logging.getLogger('storytime')
 
 
@@ -474,33 +467,22 @@ def eleven_speech(paragraph, voice, output, previous=''):
     write_wav(output, frames)
 
 
-def eleven_has_room(characters, book=False):
+def eleven_has_room(characters):
     """True when this month's ElevenLabs quota covers the characters and still keeps the reserve for other
-    uses. The plan's own quota is the ceiling, so there is never a surprise bill. With book, the characters
-    are booked before the request goes out and stay booked even if it fails, since it may still be charged."""
-    # The reading and the settling share one lock, so an older reading can never land after a newer one.
-    with eleven_lock:
-        try:
-            request = urllib.request.Request('https://api.elevenlabs.io/v1/user/subscription',
-                                            headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
-            with urllib.request.urlopen(request, timeout=10) as response:
-                quota = json.load(response)
-            used, limit = int(quota['character_count']), int(quota['character_limit'])
-        except Exception as error:
-            log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
-            return False
-        if time.monotonic() - eleven_booked['at'] > ELEVEN_LAG:
-            eleven_booked.update(last=None, outstanding=0)
-        last = used if eleven_booked['last'] is None else eleven_booked['last']
-        # The highest reading wins: a lower one settles nothing and frees nothing (a new billing month
-        # clears after ELEVEN_LAG quiet seconds).
-        seen = max(last, used)
-        eleven_booked.update(last=seen, outstanding=max(0, eleven_booked['outstanding'] - (seen - last)))
-        if limit - seen - eleven_booked['outstanding'] - CONFIG.elevenlabs_reserve_chars < characters:
-            return False
-        if book:
-            eleven_booked.update(outstanding=eleven_booked['outstanding'] + characters, at=time.monotonic())
-        return True
+    uses. Read once before an ElevenLabs story (EMMI's MAY-1276 rule): remaining minus the story stays
+    at or above elevenlabs_reserve_chars, else the Mistral twin reads."""
+    # ponytail: no booking ledger; a lagging counter or two overlapping stories can dip into the reserve
+    # by up to one story, accepted for one household.
+    try:
+        request = urllib.request.Request('https://api.elevenlabs.io/v1/user/subscription',
+                                        headers={'xi-api-key': api_key('ELEVENLABS_API_KEY')})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            quota = json.load(response)
+        remaining = int(quota['character_limit']) - int(quota['character_count'])
+    except Exception as error:
+        log.warning('ElevenLabs quota unavailable: %s HTTP %s', type(error).__name__, getattr(error, 'code', '-'))
+        return False
+    return remaining - characters >= CONFIG.elevenlabs_reserve_chars
 
 
 def story_reader(choices, number, paragraphs):
@@ -526,8 +508,8 @@ def local_voice_clip(paragraph, voice, output):
 
 
 def voice_clip(paragraph, voice, output, previous=''):
-    # Runs under voice_lock, one paragraph at a time, so this check also holds when two stories overlap.
-    if voice in TWIN and eleven_has_room(len(paragraph), book=True):
+    # An ElevenLabs slot here means story_reader already checked the quota once for this story.
+    if voice in TWIN:
         try:
             eleven_speech(paragraph, voice, output, previous)
             return 'ElevenLabs'

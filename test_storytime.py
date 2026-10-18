@@ -782,12 +782,12 @@ class StorytimeCheck(unittest.TestCase):
 
     def test_elevenlabs_request_and_twin_fallback(self):
         import server
-        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only') as key, \
-                patch.object(server, 'eleven_has_room', return_value=True):
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only') as key:
             output = Path(directory) / 'speech.wav'
             with patch.object(server.urllib.request, 'urlopen') as send:
                 send.return_value.__enter__.return_value = io.BytesIO(b'\x01\x00' * 2400)
                 self.assertEqual(server.voice_clip('Good night.', 'el_nana', output, 'Before.'), 'ElevenLabs')
+                send.assert_called_once()  # the quota was read once by story_reader, not per paragraph
                 request = send.call_args.args[0]
                 self.assertEqual(request.full_url, f"https://api.elevenlabs.io/v1/text-to-speech/{server.CONFIG.elevenlabs_voices['el_nana']}?output_format=pcm_24000")
                 payload = json.loads(request.data)
@@ -828,78 +828,6 @@ class StorytimeCheck(unittest.TestCase):
         with patch.object(server, 'eleven_has_room') as room:
             self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
             room.assert_not_called()
-
-    def eleven_run(self, paragraphs, counter_follows, fail_first=False, counter=None):
-        """Read paragraphs as Nana with a mocked account: 20,000 of 33,136 used, so 3,136 above the reserve."""
-        import server
-        charged = []
-        def reply(request, timeout):
-            response = Mock()
-            used = counter(len(charged)) if counter else 20000 + (sum(charged) if counter_follows else 0)
-            response.__enter__ = Mock(return_value=io.StringIO(json.dumps({'character_limit': 33136, 'character_count': used})))
-            response.__exit__ = Mock(return_value=False)
-            return response
-        def speak(text, voice, path, previous=''):
-            charged.append(len(text))  # the provider charges as soon as it answers
-            if fail_first and len(charged) == 1:
-                raise OSError('disk full while saving')
-            path.write_bytes(wav_bytes())
-        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'api_key', return_value='test-only'), \
-                patch.object(server.urllib.request, 'urlopen', side_effect=reply), \
-                patch.object(server, 'eleven_booked', {'last': None, 'outstanding': 0, 'at': float('-inf')}), \
-                patch.object(server, 'eleven_speech', side_effect=speak), \
-                patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())):
-            engines = [server.voice_clip(text, 'el_nana', Path(directory) / f'{n}.wav') for n, text in enumerate(paragraphs)]
-        return engines, sum(charged)
-
-    def test_overlapping_stories_never_spend_the_reserve(self):
-        # Two Nana stories of two 1,000-character paragraphs each, interleaved, while the account counter lags.
-        engines, charged = self.eleven_run(['x' * 1000] * 4, counter_follows=False)
-        self.assertEqual(engines, ['ElevenLabs'] * 3 + ['Mistral'])
-        self.assertLessEqual(charged, 3136, 'The 10,000 reserve stays untouched')
-        # A request that was charged but then failed locally stays booked.
-        engines, charged = self.eleven_run(['x' * 1000] * 4, counter_follows=False, fail_first=True)
-        self.assertEqual(engines, ['Mistral', 'ElevenLabs', 'ElevenLabs', 'Mistral'])
-        self.assertLessEqual(charged, 3136)
-        # A counter that keeps up is not counted twice: a story that fits is read to the end.
-        engines, charged = self.eleven_run(['x' * 750] * 4, counter_follows=True)
-        self.assertEqual(engines, ['ElevenLabs'] * 4)
-        self.assertEqual(charged, 3000)
-        # Round 3: another app's 1,000 characters land with the first paragraph, then the counter lags.
-        # That extra rise is never credit: the third paragraph would take the account below the reserve.
-        engines, charged = self.eleven_run(['x' * 1000] * 3, counter_follows=False, counter=lambda done: 20000 if done == 0 else 22000)
-        self.assertEqual(engines, ['ElevenLabs', 'ElevenLabs', 'Mistral'])
-        self.assertLessEqual(charged + 1000, 3136, 'StoryTime plus the other app stay above the reserve')
-
-    def test_late_quota_reading_cannot_move_the_baseline_back(self):
-        import server
-        readings = iter([20000, 20750, 20750, 20000, 20000, 20000])
-        def reply(request, timeout):
-            response = Mock()
-            response.__enter__ = Mock(return_value=io.StringIO(json.dumps({'character_limit': 33136, 'character_count': next(readings)})))
-            response.__exit__ = Mock(return_value=False)
-            return response
-        with patch.object(server, 'api_key', return_value='test-only'), patch.object(server.urllib.request, 'urlopen', side_effect=reply), \
-                patch.object(server, 'eleven_booked', {'last': None, 'outstanding': 0, 'at': float('-inf')}):
-            self.assertTrue(server.eleven_has_room(750, book=True))
-            self.assertTrue(server.eleven_has_room(750, book=True))  # 20,750 settles the first booking
-            self.assertTrue(server.eleven_has_room(750, book=True))
-            self.assertEqual(server.eleven_booked['outstanding'], 1500)
-            self.assertTrue(server.eleven_has_room(1))  # a late, lower reading settles nothing and keeps the baseline
-            self.assertEqual((server.eleven_booked['last'], server.eleven_booked['outstanding']), (20750, 1500))
-            # ...and frees nothing: 33,136 - 20,750 - 1,500 booked - 10,000 reserve = 886 left, not 1,636.
-            self.assertFalse(server.eleven_has_room(887))
-            self.assertTrue(server.eleven_has_room(886))
-        # The reading happens under the lock, so two checks cannot interleave their readings.
-        held = []
-        def watched(*args, **kwargs):
-            held.append(server.eleven_lock.locked())
-            return reply(*args, **kwargs)
-        with patch.object(server.urllib.request, 'urlopen', side_effect=watched), \
-                patch.object(server, 'api_key', return_value='test-only'), patch.object(server, 'eleven_booked', {'last': None, 'outstanding': 0, 'at': float('-inf')}):
-            readings = iter([20000])
-            self.assertTrue(server.eleven_has_room(1))
-        self.assertEqual(held, [True])
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):
         import server
