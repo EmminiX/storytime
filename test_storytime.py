@@ -787,7 +787,7 @@ class StorytimeCheck(unittest.TestCase):
             with patch.object(server.urllib.request, 'urlopen') as send:
                 send.return_value.__enter__.return_value = io.BytesIO(b'\x01\x00' * 2400)
                 self.assertEqual(server.voice_clip('Good night.', 'el_nana', output, 'Before.'), 'ElevenLabs')
-                send.assert_called_once()  # the quota was read once by story_reader, not per paragraph
+                send.assert_called_once()  # the quota is read once by read_aloud, not per paragraph
                 request = send.call_args.args[0]
                 self.assertEqual(request.full_url, f"https://api.elevenlabs.io/v1/text-to-speech/{server.CONFIG.elevenlabs_voices['el_nana']}?output_format=pcm_24000")
                 payload = json.loads(request.data)
@@ -816,21 +816,13 @@ class StorytimeCheck(unittest.TestCase):
             with patch.object(server.urllib.request, 'urlopen', side_effect=urllib.error.URLError('offline')):
                 self.assertFalse(server.eleven_has_room(1))
         nana = server.Choices(voice='el_nana')
-        with patch.object(server, 'eleven_has_room', return_value=True) as room:
-            self.assertEqual(server.story_reader(nana, 1, ['abc', 'de']), 'el_nana')
-            room.assert_called_once_with(5)
-            self.assertTrue(server.eleven_lock.locked(), 'An ElevenLabs story holds the lock until it is read')
-            server.eleven_lock.release()
-            self.assertEqual(server.story_reader(nana, 2, ['abc']), 'bf_emma')
-            self.assertEqual(server.story_reader(server.Choices(voice='el_grandad'), 3, ['abc']), 'bm_george')
-            self.assertEqual(server.story_reader(server.Choices(voice='bm_george'), 1, ['abc']), 'bm_george')
-        with patch.object(server, 'eleven_has_room', return_value=False):
-            self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
-        self.assertFalse(server.eleven_lock.locked(), 'A twin story frees the lock at once')
+        self.assertEqual(server.story_reader(nana, 1), 'el_nana')
+        self.assertEqual(server.story_reader(nana, 2), 'bf_emma')
+        self.assertEqual(server.story_reader(server.Choices(voice='el_grandad'), 3), 'bm_george')
+        self.assertEqual(server.story_reader(server.Choices(voice='bm_george'), 1), 'bm_george')
+        self.assertFalse(server.eleven_lock.locked(), 'Choosing a reader never takes the lock')
         server.CONFIG.elevenlabs_voices = {}
-        with patch.object(server, 'eleven_has_room') as room:
-            self.assertEqual(server.story_reader(nana, 1, ['abc']), 'bf_emma')
-            room.assert_not_called()
+        self.assertEqual(server.story_reader(nana, 1), 'bf_emma')
 
     def eleven_account(self, charged):
         """The account's subscription reply: 20,000 of 33,136 used, plus what StoryTime has been charged."""
@@ -856,7 +848,6 @@ class StorytimeCheck(unittest.TestCase):
                     patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: spoken.append(voice) or path.write_bytes(wav_bytes())), \
                     patch.object(server, 'start_chain'):
                 story = server.make_story(server.Choices(voice=voice))
-                server.audio_threads[story['id']].join(5)
                 self.assertEqual(story['reader'], twin)
                 self.assertEqual(spoken, [twin] * 4)
                 send.assert_called_once()
@@ -865,11 +856,10 @@ class StorytimeCheck(unittest.TestCase):
     def test_a_second_elevenlabs_story_waits_and_reads_the_quota_again(self):
         import server
         # 4 x 700 = 2,800 characters: the first story fits above the reserve, a second one after it does not.
-        charged, reading = [], threading.Event()
+        charged, reading, stories = [], threading.Event(), {}
         def speak(text, voice, path, previous=''):
             charged.append(len(text))
-            if len(charged) > 1:
-                self.assertTrue(reading.wait(5))  # the first story is still being read
+            self.assertTrue(reading.wait(5))  # the first story is still being read
             path.write_bytes(wav_bytes())
         with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
                 patch.object(server, 'api_key', return_value='test-only'), \
@@ -878,22 +868,116 @@ class StorytimeCheck(unittest.TestCase):
                 patch.object(server, 'eleven_speech', side_effect=speak), \
                 patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: path.write_bytes(wav_bytes())), \
                 patch.object(server, 'start_chain'):
-            first = server.make_story(server.Choices(voice='el_nana'))
-            self.assertEqual(first['reader'], 'el_nana')
-            second = {}
-            waiting = threading.Thread(target=lambda: second.update(server.make_story(server.Choices(voice='el_nana'))))
-            waiting.start()
-            waiting.join(0.5)
-            self.assertTrue(waiting.is_alive(), 'The second story waits while the first is read')
+            first = threading.Thread(target=lambda: stories.update(first=server.make_story(server.Choices(voice='el_nana'))))
+            first.start()
+            while not charged:
+                first.join(0.01)
+            second = threading.Thread(target=lambda: stories.update(second=server.make_story(server.Choices(voice='el_nana'))))
+            second.start()
+            second.join(0.5)
+            self.assertTrue(second.is_alive(), 'The second story waits while the first is read')
             self.assertEqual(send.call_count, 1, 'and has not read the quota yet')
             reading.set()
-            server.audio_threads[first['id']].join(5)
-            waiting.join(5)
-            self.assertFalse(waiting.is_alive())
+            first.join(5)
+            second.join(5)
+            self.assertFalse(first.is_alive() or second.is_alive())
             self.assertEqual(sum(charged), 2800)
             self.assertEqual(send.call_count, 2, 'The second story read the quota again after the first')
-            self.assertEqual(second['reader'], 'bf_emma', '33,136 - 22,800 - 2,800 is under the reserve')
-            server.audio_threads[second['id']].join(5)
+            self.assertEqual((stories['first']['reader'], stories['second']['reader']), ('el_nana', 'bf_emma'),
+                             '33,136 - 22,800 - 2,800 is under the reserve')
+            self.assertFalse(server.eleven_lock.locked())
+
+    def resumable_nana_story(self, directory, done=0):
+        """A saved Nana story of four 500-character paragraphs with `done` of them already read."""
+        import server
+        story_id = '20261018-000001-resume'
+        (Path(directory) / story_id).mkdir()
+        server.save_story({'id': story_id, 'choices': server.Choices(voice='el_nana').model_dump(), 'title': 'Quiet',
+                           'paragraphs': ['x' * 500] * 4, 'number': 1, 'reader': 'el_nana',
+                           'created': '2026-10-18T00:00:01+00:00', 'root_id': story_id, 'next_story_id': None})
+        for number in range(1, done + 1):
+            (Path(directory) / story_id / f'p{number:02}.wav').write_bytes(wav_bytes())
+        return story_id
+
+    def test_a_replay_during_creation_cannot_leave_the_lock_held(self):
+        import server
+        entered, proceed, stories = threading.Event(), threading.Event(), {}
+        def speak(text, voice, path, previous=''):
+            entered.set()
+            self.assertTrue(proceed.wait(5))
+            path.write_bytes(wav_bytes())
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'generate_text', return_value=('A gentle swim', ['x' * 100] * 2, None, None)), \
+                patch.object(server, 'eleven_has_room', return_value=True), \
+                patch.object(server, 'eleven_speech', side_effect=speak), \
+                patch.object(server, 'start_chain'):
+            creating = threading.Thread(target=lambda: stories.update(story=server.make_story(server.Choices(voice='el_nana'))))
+            creating.start()
+            self.assertTrue(entered.wait(5))
+            story_id = next(Path(directory).glob('*/story.json')).parent.name
+            server.get_story(story_id)  # a second device opens the shelf entry mid-creation
+            proceed.set()
+            creating.join(5)
+            server.audio_threads[story_id].join(5)
+            self.assertFalse(creating.is_alive() or server.audio_threads[story_id].is_alive())
+            self.assertTrue((Path(directory) / story_id / 'story.wav').is_file())
+            self.assertTrue(server.eleven_lock.acquire(timeout=1), 'The next ElevenLabs story is admitted')
+            server.eleven_lock.release()
+
+    def test_a_resumed_elevenlabs_story_checks_the_quota_first(self):
+        import server
+        def run(remaining, done, busy=False):
+            spoken, quota_reads = [], []
+            def reply(request, timeout):
+                quota_reads.append(request.full_url)
+                response = Mock()
+                body = {'character_limit': 10000 + remaining, 'character_count': 10000}
+                response.__enter__ = Mock(return_value=io.StringIO(json.dumps(body)))
+                response.__exit__ = Mock(return_value=False)
+                return response
+            with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                    patch.object(server, 'api_key', return_value='test-only'), \
+                    patch.object(server.urllib.request, 'urlopen', side_effect=reply), \
+                    patch.object(server, 'eleven_speech', side_effect=lambda text, voice, path, previous='': spoken.append('eleven') or path.write_bytes(wav_bytes())), \
+                    patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: spoken.append('mistral') or path.write_bytes(wav_bytes())), \
+                    patch.object(server, 'start_chain'):
+                story_id = self.resumable_nana_story(directory, done)
+                if busy:
+                    server.eleven_lock.acquire()  # another ElevenLabs story is being read
+                server.get_story(story_id)  # the open-the-story recovery path
+                if busy:
+                    server.audio_threads[story_id].join(0.3)
+                    self.assertTrue(server.audio_threads[story_id].is_alive(), 'The resume waits for the other story')
+                    self.assertEqual(quota_reads, [])
+                    server.eleven_lock.release()
+                server.audio_threads[story_id].join(5)
+                self.assertFalse(server.audio_threads[story_id].is_alive())
+                self.assertFalse(server.eleven_lock.locked())
+                self.assertTrue((Path(directory) / story_id / 'story.wav').is_file())
+                return spoken, len(quota_reads), server.read_story(story_id)['reader']
+        # 3 unread paragraphs = 1,500 characters: exactly 11,500 left keeps the 10,000 reserve, 11,499 does not.
+        self.assertEqual(run(11500, 1), (['eleven'] * 3, 1, 'el_nana'))
+        self.assertEqual(run(11499, 1), (['mistral'] * 3, 1, 'bf_emma'), 'At the reserve the Mistral twin reads the rest')
+        self.assertEqual(run(10000, 0), (['mistral'] * 4, 1, 'bf_emma'))
+        self.assertEqual(run(11500, 1, busy=True), (['eleven'] * 3, 1, 'el_nana'))
+
+    def test_a_restart_resumes_an_elevenlabs_story_through_the_same_check(self):
+        import asyncio
+        import server
+        spoken = []
+        with tempfile.TemporaryDirectory() as directory, patch.object(server, 'STORIES', Path(directory)), \
+                patch.object(server, 'eleven_has_room', return_value=False) as room, \
+                patch.object(server, 'eleven_speech', side_effect=AssertionError('no ElevenLabs over the reserve')), \
+                patch.object(server, 'mistral_speech', side_effect=lambda text, voice, path: spoken.append(voice) or path.write_bytes(wav_bytes())), \
+                patch.object(server, 'materialise_classic'), patch.object(server, 'start_chain'):
+            story_id = self.resumable_nana_story(directory)
+            async def restart():
+                async with server.lifespan(server.app):
+                    pass
+            asyncio.run(restart())
+            server.audio_threads[story_id].join(5)
+            room.assert_called_once_with(2000)
+            self.assertEqual(spoken, ['bf_emma'] * 4)
             self.assertFalse(server.eleven_lock.locked())
 
     def test_reader_slots_names_and_voice_ids_are_validated(self):

@@ -487,17 +487,13 @@ def eleven_has_room(characters):
     return remaining - characters >= CONFIG.elevenlabs_reserve_chars
 
 
-def story_reader(choices, number, paragraphs):
-    """The reader slot that actually reads: an ElevenLabs reader on story 1 when the quota allows, else its twin.
-    An ElevenLabs answer leaves eleven_lock held; the story's audio thread releases it."""
+def story_reader(choices, number):
+    """The reader slot a new story is saved with: an ElevenLabs reader on story 1, else its twin.
+    read_aloud checks the quota before the story is read and may still hand it to the twin."""
     voice = choices.voice
-    if not (number == 1 and voice in TWIN and voice in CONFIG.elevenlabs_voices):
-        return TWIN.get(voice, voice)
-    eleven_lock.acquire()  # waits for the running ElevenLabs story, then reads the quota afresh
-    if eleven_has_room(sum(len(p) for p in paragraphs)):
+    if number == 1 and voice in TWIN and voice in CONFIG.elevenlabs_voices:
         return voice
-    eleven_lock.release()
-    return TWIN[voice]
+    return TWIN.get(voice, voice)
 
 
 def local_voice_clip(paragraph, voice, output):
@@ -514,7 +510,7 @@ def local_voice_clip(paragraph, voice, output):
 
 
 def voice_clip(paragraph, voice, output, previous=''):
-    # An ElevenLabs slot here means story_reader already checked the quota once for this story.
+    # An ElevenLabs slot here means read_aloud already checked the quota once for this run.
     if voice in TWIN:
         try:
             eleven_speech(paragraph, voice, output, previous)
@@ -600,20 +596,28 @@ def finish_audio(story_id):
         log.error('Audio generation failed for %s: %s', story_id, type(error).__name__)
 
 
-def finish_eleven_audio(story_id):
-    """finish_audio for an ElevenLabs story, then free eleven_lock for the next one."""
-    try:
+def read_aloud(story_id):
+    """finish_audio, but an ElevenLabs story is read as one job under eleven_lock, the `with` being the only
+    owner, so no path can leak it. The quota is read once for what is still unread (EMMI's MAY-1276 rule);
+    when it does not fit above the reserve the Mistral twin reads the rest. Resumes and restarts come here too."""
+    story = read_story(story_id)
+    if story.get('reader') not in TWIN:
+        return finish_audio(story_id)
+    with eleven_lock:  # waits for the running ElevenLabs story
+        folder = STORIES / story_id
+        if (folder / 'story.wav').is_file():
+            return
+        unread = sum(len(text) for number, text in enumerate(story['paragraphs'], 1) if not (folder / f'p{number:02}.wav').is_file())
+        if unread and not eleven_has_room(unread):
+            update_story(story_id, reader=TWIN[story['reader']])
         finish_audio(story_id)
-    finally:
-        eleven_lock.release()
 
 
-def start_audio(story_id, release_eleven=False):
+def start_audio(story_id):
     with store_lock:
         thread = audio_threads.get(story_id)
         if thread is None or not thread.is_alive():
-            thread = threading.Thread(target=finish_eleven_audio if release_eleven else finish_audio,
-                                      args=(story_id,), daemon=True)
+            thread = threading.Thread(target=read_aloud, args=(story_id,), daemon=True)
             audio_threads[story_id] = thread
             thread.start()
         return thread
@@ -625,26 +629,24 @@ def create_story(choices, number=1, previous=(), root_id=None):
     slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:48] or 'story'
     story_id = f"{created:%Y%m%d-%H%M%S}-{slug}-{uuid4().hex[:8]}"
     (STORIES / story_id).mkdir()
-    reader = story_reader(choices, number, paragraphs)
-    held = reader in TWIN  # story_reader left eleven_lock held; the audio thread takes it over
-    try:
-        story = {'id': story_id, 'choices': choices.model_dump(), 'title': title, 'paragraphs': paragraphs,
-                 'model': MODEL, 'created': created.isoformat(), 'number': number,
-                 'root_id': root_id or story_id, 'next_story_id': None,
-                 'reader': reader, 'word': word, 'quiz': quiz}
-        save_story(story)
-        try:
-            synthesise(story_id, 1, paragraphs[0])
-        except Exception as error:
-            update_story(story_id, audio_error=audio_error_message())
-            log.error('First audio generation failed for %s: %s', story_id, type(error).__name__)
-            return read_story(story_id)
-        start_audio(story_id, release_eleven=held)
-        held = False
+    story = {'id': story_id, 'choices': choices.model_dump(), 'title': title, 'paragraphs': paragraphs,
+             'model': MODEL, 'created': created.isoformat(), 'number': number,
+             'root_id': root_id or story_id, 'next_story_id': None,
+             'reader': story_reader(choices, number), 'word': word, 'quiz': quiz}
+    save_story(story)
+    if story['reader'] in TWIN:
+        # ponytail: ElevenLabs stories are read whole before the reply, so the lock never changes hands;
+        # the wait is the story's length. Async handoff only if that wait proves too long.
+        read_aloud(story_id)
         return read_story(story_id)
-    finally:
-        if held:
-            eleven_lock.release()
+    try:
+        synthesise(story_id, 1, paragraphs[0])
+    except Exception as error:
+        update_story(story_id, audio_error=audio_error_message())
+        log.error('First audio generation failed for %s: %s', story_id, type(error).__name__)
+        return read_story(story_id)
+    start_audio(story_id)
+    return read_story(story_id)
 
 
 def continue_stories(root_id):
